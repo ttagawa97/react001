@@ -1,0 +1,350 @@
+# =============================================================================
+# IoT Platform Overall Specification
+# =============================================================================
+#
+# File Name:
+#   01_overall_spec.yaml
+#
+# Spec Version:
+#   1.9.0
+#
+# Last Updated:
+#   2026-06-01
+#
+# Revision:
+#   - 企業マスタ管理画面を追加
+#   - company_settings をシステム管理者専用メニューとして追加
+#   - システム管理者のみ企業名の追加・変更・無効化を可能とする
+#
+# =============================================================================
+
+overall_spec:
+
+  # ===========================================================================
+  # 01. METADATA
+  # ===========================================================================
+
+  metadata:
+    system_name: iot_platform
+    spec_version: 1.9.0
+    document_type: overall_specification
+    language: ja
+    timezone: Asia/Tokyo
+
+  # ===========================================================================
+  # 02. SYSTEM OVERVIEW
+  # ===========================================================================
+
+  system_overview:
+    purpose: >
+      モバイル回線を利用したIoTデバイスからデータを受信し、
+      Web画面で一覧表示・グラフ表示・閾値監視を行う。
+
+    architecture_style:
+      - stateless_api
+      - time_series_database
+      - async_processing
+      - multi_tenant
+
+  # ===========================================================================
+  # 03. BUSINESS HIERARCHY
+  # ===========================================================================
+
+  business_hierarchy:
+    structure:
+      company:
+        child: site
+      site:
+        child: device
+      device:
+        child: device_column
+      device_column:
+        child: threshold
+
+  # ===========================================================================
+  # 04. USER ROLES
+  # ===========================================================================
+
+  user_roles:
+    system_admin:
+      label: システム管理者
+      data_scope:
+        companies: all
+        sites: all
+        devices: all
+      permissions:
+        - manage_companies
+        - manage_sites
+        - manage_users
+        - manage_devices
+        - manage_thresholds
+        - view_audit_logs
+
+    company_admin:
+      label: 企業管理者
+      data_scope:
+        companies: own_company
+        sites: all_sites_in_company
+        devices: all_devices_in_company
+      permissions:
+        - manage_sites
+        - manage_users
+        - manage_devices
+        - manage_thresholds
+        - view_audit_logs
+
+    site_admin:
+      label: 現場管理者
+      data_scope:
+        companies: own_company
+        sites: own_site
+        devices: own_site_devices
+      permissions:
+        - manage_users
+        - manage_devices
+        - manage_thresholds
+        - view_audit_logs
+
+    general_user:
+      label: 一般ユーザー
+      data_scope:
+        companies: own_company
+        sites: own_site
+        devices: own_site_devices
+      permissions:
+        - view_only
+
+  # ===========================================================================
+  # 05. MENU VISIBILITY
+  # ===========================================================================
+
+  menu_visibility:
+    system_admin:
+      - dashboard
+      - devices
+      - company_settings
+      - site_settings
+      - user_settings
+      - device_settings
+      - threshold_settings
+      - audit_logs
+
+    company_admin:
+      - dashboard
+      - devices
+      - site_settings
+      - user_settings
+      - device_settings
+      - threshold_settings
+      - audit_logs
+
+    site_admin:
+      - dashboard
+      - devices
+      - user_settings
+      - device_settings
+      - threshold_settings
+      - audit_logs
+
+    general_user:
+      - dashboard
+      - devices
+
+  # ===========================================================================
+  # 06. COMPANY MANAGEMENT RULES
+  # ===========================================================================
+
+  company_management_rules:
+    screen_id: company_settings
+    label: 企業設定
+    visible_roles:
+      - system_admin
+
+    editable_roles:
+      - system_admin
+
+    hidden_roles:
+      - company_admin
+      - site_admin
+      - general_user
+
+    actions:
+      - list_companies
+      - create_company
+      - update_company
+      - disable_company
+
+    company_form_modal:
+      usage:
+        - create
+        - update
+
+      open_trigger:
+        create:
+          event: click_add_company_button
+          mode: create
+
+        update:
+          event: double_click_company_table_row
+          mode: update
+
+      fields:
+        - id: company_name
+          label: 企業名
+          type: Input
+          required: true
+
+        - id: status
+          label: ステータス
+          type: Select
+          required: true
+          options:
+            - active
+            - inactive
+
+      validation:
+        company_name_required: true
+        company_name_unique: true
+
+  # ===========================================================================
+  # 07. COMMON FILTER POLICY
+  # ===========================================================================
+
+  common_filter_policy:
+    visible_on_screens:
+      - dashboard
+      - devices
+      - company_settings
+      - site_settings
+      - user_settings
+      - device_settings
+      - threshold_settings
+      - audit_logs
+
+    fields:
+      - company_id
+      - site_id
+      - device_id
+
+    role_behavior:
+      system_admin:
+        company_id: editable
+        site_id: editable
+        device_id: editable
+
+      company_admin:
+        company_id: readonly
+        site_id: editable
+        device_id: editable
+
+      site_admin:
+        company_id: readonly
+        site_id: readonly
+        device_id: editable
+
+      general_user:
+        company_id: readonly
+        site_id: readonly
+        device_id: editable
+
+  # ===========================================================================
+  # 08. USER MANAGEMENT RULES
+  # ===========================================================================
+
+  user_management_rules:
+    user_scope_rule:
+      system_admin:
+        company_id: nullable
+        site_id: nullable
+      company_admin:
+        company_id: required
+        site_id: nullable
+      site_admin:
+        company_id: required
+        site_id: required
+      general_user:
+        company_id: required
+        site_id: required
+
+  # ===========================================================================
+  # 09. DEVICE MANAGEMENT RULES
+  # ===========================================================================
+
+  device_management_rules:
+    device_popup:
+      mode:
+        - create
+        - update
+
+    authentication:
+      type: basic_auth
+      https_only: true
+      password_update_method: overwrite_allowed
+
+    device_columns:
+      min_count: 1
+      max_count: 256
+      fields:
+        - column_name
+        - display_name
+        - data_type
+        - unit
+        - weight
+        - display_order
+
+  # ===========================================================================
+  # 10. THRESHOLD RULES
+  # ===========================================================================
+
+  threshold_rules:
+    target: device_column
+    multiple_per_device: true
+    multiple_per_column: true
+    notification:
+      method: email
+      recipient_format: comma_separated_email_addresses
+    error_data:
+      exclude_from_threshold_check: true
+
+  # ===========================================================================
+  # 11. AI IMPLEMENTATION RULES
+  # ===========================================================================
+
+  ai_implementation_rules:
+    mandatory:
+      - use_react
+      - use_typescript
+      - use_chakra_ui
+      - use_chartjs
+      - use_django
+      - use_drf
+      - use_timescaledb
+      - use_celery
+      - use_redis
+      - use_docker_compose
+
+    prohibited:
+      - websocket
+      - auto_refresh
+      - external_integration
+      - search_function
+      - data_discard
+
+  # ===========================================================================
+  # 12. PENDING ITEMS
+  # ===========================================================================
+
+  pending_items:
+    - raw_data_retention_period
+    - parsed_data_1min_retention_period
+    - exact_downsampling_delete_timing
+    - graph_range_to_table_mapping
+    - performance_target_tps
+    - availability_sla
+    - backup_policy
+    - disaster_recovery_policy
+    - additional_security_controls
+    - development_mail_server
+    - aws_ses_region
+    - aws_ses_verified_sender
+    - production_secret_management

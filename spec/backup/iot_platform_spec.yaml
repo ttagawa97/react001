@@ -1,0 +1,1990 @@
+```yaml
+# =============================================================================
+# IoT Platform Integrated AI Build Specification
+# =============================================================================
+#
+# File Name:
+#   iot_platform_spec.yaml
+#
+# Purpose:
+#   IoTプラットフォームをAIにより自動製造するための統合仕様書。
+#   要件、権限、画面、API、DB、TimescaleDB、Docker、未決事項を
+#   1本のYAMLとして管理する。
+#
+# Architecture Overview:
+#   Company
+#     └─ Site
+#          └─ Device
+#               └─ Device Column
+#                    └─ Threshold
+#
+# Core Technologies:
+#   - React
+#   - TypeScript
+#   - Chakra UI
+#   - Chart.js
+#   - react-chartjs-2
+#   - Django
+#   - Django REST Framework
+#   - TimescaleDB
+#   - Docker Compose
+#
+# Design Policies:
+#   - AIの実装判断余地を極力排除する
+#   - データロスを防止する
+#   - 不正データも破棄せず保存する
+#   - 時系列データはTimescaleDBで最適化する
+#   - ダウンサンプリング済みデータを長期保存する
+#   - UIはChakra UIで統一する
+#   - グラフはChart.jsで統一する
+#   - 権限ごとに参照・操作範囲を制御する
+#   - 企業→現場→デバイス→カラム→閾値の階層を厳守する
+#
+# -----------------------------------------------------------------------------
+# Version Information
+# -----------------------------------------------------------------------------
+#
+# Spec Version:
+#   1.7.0
+#
+# Created Date:
+#   2026-05-28
+#
+# Last Updated:
+#   2026-05-28
+#
+# Authoring Agent:
+#   OpenAI GPT-5.5
+#
+# -----------------------------------------------------------------------------
+# Revision History
+# -----------------------------------------------------------------------------
+#
+# 1.0.0
+#   - 初版作成
+#   - 要件、DB、API、UI、Docker統合
+#
+# 1.1.0
+#   - UI仕様分離
+#   - 画面遷移図追加
+#
+# 1.2.0
+#   - 企業→現場→デバイス→カラム→閾値の階層へ変更
+#
+# 1.3.0
+#   - 一般ユーザーを所属現場参照型へ変更
+#   - 共通絞込仕様追加
+#   - 権限別プルダウン制御追加
+#
+# 1.4.0
+#   - ユーザー追加画面のスコープルール追加
+#   - 会社・現場選択状態による作成可能ロール制御を追加
+#
+# 1.5.0
+#   - ユーザー追加／変更ポップアップ統合
+#   - 一覧ダブルクリックで変更モード起動追加
+#   - 管理者パスワードリセット機能追加
+#   - ユーザー自身のパスワード変更仕様追加
+#
+# 1.6.0
+#   - デバイス追加／変更ポップアップ統合
+#   - デバイス一覧ダブルクリックで変更モード起動追加
+#   - デバイス認証パスワードの上書き再設定を追加
+#   - デバイスカラム設定一覧を追加
+#   - カラム重み設定を追加
+#   - カラム数を最小1個、最大256個に制限
+#
+# 1.7.0
+#   - 会話全体を再確認し、漏れ防止のため最終統合版として再構成
+#   - Inventory追加
+#   - ユーザー設定、デバイス設定、閾値設定、画面遷移、API、DBを再統合
+#
+# -----------------------------------------------------------------------------
+# TABLE OF CONTENTS
+# -----------------------------------------------------------------------------
+#
+# 01. Metadata
+# 02. Inventory
+# 03. System Requirements
+# 04. Technology Stack
+# 05. Roles And Permissions
+# 06. Common Filter Policy
+# 07. Business Rules
+# 08. User Management Rules
+# 09. Device Management Rules
+# 10. Threshold Rules
+# 11. Data Receive Rules
+# 12. Data Model
+# 13. TimescaleDB Strategy
+# 14. API Interface
+# 15. UI Specification
+# 16. Infrastructure
+# 17. Non Functional Requirements
+# 18. Forbidden Rules
+# 19. AI Execution Rules
+# 20. Pending Items
+#
+# =============================================================================
+
+iot_platform_spec:
+
+  # ===========================================================================
+  # 01. METADATA
+  # ===========================================================================
+
+  metadata:
+    system_name: iot_platform
+    spec_version: 1.7.0
+    language: ja
+    timezone: Asia/Tokyo
+    document_type: ai_build_specification
+    description: >
+      企業が複数現場を管理し、各現場に設置されたIoTデバイスから
+      HTTPSでデータを受信し、最新値一覧、グラフ表示、閾値監視、
+      通信断検知を行うIoTプラットフォームのAI製造用統合仕様。
+
+  # ===========================================================================
+  # 02. INVENTORY
+  # ===========================================================================
+  #
+  # 再出力時の漏れ防止用インベントリ。
+  # AIは再生成時に、この一覧の要素を必ず含めること。
+  # ===========================================================================
+
+  inventory:
+    hierarchy:
+      - company
+      - site
+      - device
+      - device_column
+      - threshold
+
+    roles:
+      - system_admin
+      - company_admin
+      - site_admin
+      - general_user
+
+    ui_screens:
+      - login
+      - password_reset
+      - dashboard
+      - devices
+      - device_graph
+      - site_settings
+      - user_settings
+      - device_settings
+      - threshold_settings
+      - audit_logs
+
+    ui_modals:
+      - user_form_modal
+      - device_form_modal
+      - threshold_form_modal
+      - site_form_modal
+
+    ui_tables:
+      - user_table
+      - device_table
+      - threshold_table
+      - site_table
+      - audit_log_table
+
+    api_groups:
+      - auth
+      - dashboard
+      - sites
+      - users
+      - devices
+      - thresholds
+      - masters
+      - audit_logs
+      - device_receive
+
+    data_tables:
+      - companies
+      - sites
+      - users
+      - devices
+      - device_columns
+      - raw_data
+      - parsed_data
+      - parsed_data_1min
+      - parsed_data_1hour
+      - latest_values
+      - thresholds
+      - threshold_events
+      - device_status
+      - audit_logs
+
+  # ===========================================================================
+  # 03. SYSTEM REQUIREMENTS
+  # ===========================================================================
+
+  system_requirements:
+    main_hierarchy:
+      - company
+      - site
+      - device
+      - device_column
+      - threshold
+
+    architecture_style:
+      - stateless_api
+      - async_processing
+      - timescale_db
+      - simple_admin_console
+
+    priority:
+      - data_loss_prevention
+      - scalability
+      - time_series_optimization
+      - simple_ui
+      - clear_permission_control
+
+    scale_assumption:
+      company_count: multiple
+      sites_per_company: multiple
+      devices_per_site: tens
+      columns_per_device: multiple
+      total_devices: 1000_to_tens_of_thousands
+
+    receive_frequency:
+      minimum_interval_seconds: 1
+      actual_interval: device_dependent
+
+    data_policy:
+      record_first: true
+      discard_invalid_data: false
+      invalid_data_handling: accept_and_record_as_error
+      server_timestamp_required: true
+      device_timestamp_required: true
+
+  # ===========================================================================
+  # 04. TECHNOLOGY STACK
+  # ===========================================================================
+
+  technology_stack:
+    frontend:
+      framework: React
+      language: TypeScript
+      build_tool: Vite
+      ui_library: Chakra UI
+      chart_library: Chart.js
+      chart_wrapper: react-chartjs-2
+      router: React Router
+      api_client: axios
+
+    backend:
+      framework: Django
+      api_framework: Django REST Framework
+      language: Python
+      async_processing: required
+
+    database:
+      engine: TimescaleDB
+      base: PostgreSQL
+      use_hypertable: true
+      use_continuous_aggregate: true
+
+    infrastructure:
+      container: Docker
+      orchestration: Docker Compose
+
+  # ===========================================================================
+  # 05. ROLES AND PERMISSIONS
+  # ===========================================================================
+
+  roles_and_permissions:
+    roles:
+      system_admin:
+        label: システム管理者
+        data_scope: all_companies_all_sites
+        permissions:
+          - view_all_data
+          - manage_companies
+          - manage_sites
+          - manage_users
+          - manage_devices
+          - manage_thresholds
+          - view_audit_logs
+
+      company_admin:
+        label: 企業管理者
+        data_scope: own_company_all_sites
+        permissions:
+          - view_company_data
+          - manage_company_sites
+          - manage_company_users
+          - manage_company_devices
+          - manage_company_thresholds
+          - view_company_audit_logs
+
+      site_admin:
+        label: 現場管理者
+        data_scope: own_site
+        permissions:
+          - view_site_data
+          - manage_site_users
+          - manage_site_devices
+          - manage_site_thresholds
+          - view_site_audit_logs
+
+      general_user:
+        label: 一般ユーザー
+        data_scope: own_site
+        permissions:
+          - view_site_data
+
+    menu_visibility:
+      system_admin: all
+
+      company_admin:
+        - dashboard
+        - devices
+        - site_settings
+        - user_settings
+        - device_settings
+        - threshold_settings
+        - audit_logs
+
+      site_admin:
+        - dashboard
+        - devices
+        - user_settings
+        - device_settings
+        - threshold_settings
+        - audit_logs
+
+      general_user:
+        - dashboard
+        - devices
+
+    operation_scope:
+      system_admin:
+        can_view: all_companies_all_sites
+        can_edit: all_companies_all_sites
+
+      company_admin:
+        can_view: own_company_all_sites
+        can_edit: own_company_all_sites
+
+      site_admin:
+        can_view: own_site
+        can_edit: own_site
+
+      general_user:
+        can_view: own_site
+        can_edit: none
+
+  # ===========================================================================
+  # 06. COMMON FILTER POLICY
+  # ===========================================================================
+  #
+  # 各画面に企業・現場・デバイスの絞込プルダウンを表示する。
+  # ただし、ログインユーザーの権限に応じて選択可否を制御する。
+  # ===========================================================================
+
+  common_filter_policy:
+    fields:
+      - id: company_id
+        label: 企業
+        type: Select
+
+      - id: site_id
+        label: 現場
+        type: Select
+        depends_on: company_id
+
+      - id: device_id
+        label: デバイス
+        type: Select
+        depends_on: site_id
+
+    visibility:
+      all_roles: visible
+
+    enabled_rule:
+      system_admin:
+        company_id: enabled
+        site_id: enabled
+        device_id: enabled
+
+      company_admin:
+        company_id: disabled_fixed_to_own_company
+        site_id: enabled
+        device_id: enabled
+
+      site_admin:
+        company_id: disabled_fixed_to_own_company
+        site_id: disabled_fixed_to_own_site
+        device_id: enabled
+
+      general_user:
+        company_id: disabled_fixed_to_own_company
+        site_id: disabled_fixed_to_own_site
+        device_id: enabled
+
+    data_source_scope:
+      system_admin:
+        company_options: all_companies
+        site_options: selected_company_sites
+        device_options: selected_site_devices
+
+      company_admin:
+        company_options: own_company_only
+        site_options: own_company_sites
+        device_options: selected_site_devices
+
+      site_admin:
+        company_options: own_company_only
+        site_options: own_site_only
+        device_options: own_site_devices
+
+      general_user:
+        company_options: own_company_only
+        site_options: own_site_only
+        device_options: own_site_devices
+
+  # ===========================================================================
+  # 07. BUSINESS RULES
+  # ===========================================================================
+
+  business_rules:
+    tenant_isolation:
+      required: true
+      rule: 他企業データはシステム仕様上参照不可
+
+    site_model:
+      required: true
+      rule: 企業は複数の現場を持ち、デバイスは必ずいずれかの現場に所属する
+
+    user_authentication:
+      login_id: emailとは別の任意ID
+      password_required: true
+      password_reset_required: true
+
+    device_authentication:
+      type: basic_auth
+      transport: https_only
+      credential_scope: per_device
+      auth_id_required: true
+      auth_password_required: true
+      device_id_independent_from_auth_id: true
+
+    device_id_rule:
+      allowed_chars: ascii_letters_numbers_symbols
+      japanese_allowed: false
+
+    data_format:
+      allowed:
+        - json
+        - csv
+      json_type: fixed_key_object
+      csv_header_mode:
+        - header_exists
+        - no_header
+
+    device_column_rule:
+      min_columns_per_device: 1
+      max_columns_per_device: 256
+      column_count_required: true
+      column_name_unique_per_device: true
+      column_name_japanese_allowed: false
+
+    value_display_rule:
+      weighted_display_enabled: true
+      rule: 表示値およびグラフ値は、受信値にカラムの重み設定を掛けた値を使用する
+
+    device_disconnect_rule:
+      enabled: true
+      use_last_receive_count: 10
+      estimated_interval_method: average
+      disconnected_when_missing_count: 2
+      notify_to: administrators
+      notify_method: email
+
+    audit_rule:
+      enabled: true
+      target_events:
+        - user_setting_changed
+        - site_setting_changed
+        - device_setting_changed
+        - threshold_setting_changed
+
+  # ===========================================================================
+  # 08. USER MANAGEMENT RULES
+  # ===========================================================================
+
+  user_management_rules:
+    user_scope_rule:
+      system_admin:
+        company_id: nullable
+        site_id: nullable
+
+      company_admin:
+        company_id: required
+        site_id: nullable
+
+      site_admin:
+        company_id: required
+        site_id: required
+
+      general_user:
+        company_id: required
+        site_id: required
+
+    user_form_role_selection_rule:
+      when_company_id_empty_and_site_id_empty:
+        allowed_roles:
+          - system_admin
+
+      when_company_id_selected_and_site_id_empty:
+        allowed_roles:
+          - company_admin
+
+      when_company_id_selected_and_site_id_selected:
+        allowed_roles:
+          - site_admin
+          - general_user
+
+    operation_user_limit:
+      system_admin:
+        can_create_roles:
+          - system_admin
+          - company_admin
+          - site_admin
+          - general_user
+        company_id_control: selectable_or_empty
+        site_id_control: selectable_or_empty
+
+      company_admin:
+        can_create_roles:
+          - company_admin
+          - site_admin
+          - general_user
+        company_id_control: fixed_to_own_company
+        site_id_control: selectable_or_empty_within_own_company
+
+      site_admin:
+        can_create_roles:
+          - site_admin
+          - general_user
+        company_id_control: fixed_to_own_company
+        site_id_control: fixed_to_own_site
+
+      general_user:
+        can_create_roles: []
+        company_id_control: fixed_to_own_company
+        site_id_control: fixed_to_own_site
+
+    password_policy:
+      user_password_change:
+        location: login_screen
+        method: password_reset_flow
+        description: ユーザー自身のパスワード変更はログイン画面のパスワード再発行導線から行う
+
+      admin_password_reset:
+        location: user_form_modal
+        available_in_mode: update
+        description: 管理者はユーザー変更ポップアップからパスワードリセットを実行可能
+        api:
+          method: POST
+          endpoint: /users/{user_id}/reset-password
+
+    user_form_modal:
+      usage:
+        - create
+        - update
+
+      open_trigger:
+        create:
+          event: click_add_user_button
+          mode: create
+
+        update:
+          event: double_click_user_table_row
+          mode: update
+
+      title_rule:
+        create: ユーザー追加
+        update: ユーザー変更
+
+      mode_behavior:
+        create:
+          api:
+            method: POST
+            endpoint: /users
+          login_id:
+            editable: true
+          password_field:
+            visible: true
+            required: true
+            purpose: initial_password
+
+        update:
+          api:
+            method: PUT
+            endpoint: /users/{user_id}
+          login_id:
+            editable: false
+          password_field:
+            visible: false
+            required: false
+          admin_reset_password_button:
+            visible: true
+            label: パスワードリセット
+            action:
+              api:
+                method: POST
+                endpoint: /users/{user_id}/reset-password
+
+    user_add_form_validation:
+      role_must_match_company_site_selection: true
+      company_admin_requires_company_id: true
+      site_admin_requires_company_id_and_site_id: true
+      general_user_requires_company_id_and_site_id: true
+      system_admin_requires_company_id_empty_and_site_id_empty: true
+      site_id_must_belong_to_selected_company: true
+      login_id_must_be_unique: true
+
+  # ===========================================================================
+  # 09. DEVICE MANAGEMENT RULES
+  # ===========================================================================
+
+  device_management_rules:
+    device_form_modal:
+      usage:
+        - create
+        - update
+
+      open_trigger:
+        create:
+          event: click_add_device_button
+          mode: create
+
+        update:
+          event: double_click_device_table_row
+          mode: update
+
+      title_rule:
+        create: デバイス追加
+        update: デバイス変更
+
+      mode_behavior:
+        create:
+          api:
+            method: POST
+            endpoint: /devices
+          auth_password:
+            visible: true
+            required: true
+
+        update:
+          api:
+            method: PUT
+            endpoint: /devices/{device_id}
+          device_id:
+            editable: false
+          auth_password:
+            visible: true
+            required: false
+            update_method: overwrite_when_input_exists
+            keep_current_when_empty: true
+
+    auth_password_policy:
+      create:
+        required: true
+        save_method: hash
+
+      update:
+        editable: true
+        required: false
+        update_method: overwrite
+        save_method: hash
+        keep_current_when_empty: true
+
+    column_settings:
+      display_type: editable_table
+      min_count: 1
+      max_count: 256
+      required: true
+
+      fields:
+        - id: column_name
+          label: カラム名
+          type: Input
+          required: true
+          validation: ascii_symbol_only_no_japanese
+
+        - id: display_name
+          label: 表示名
+          type: Input
+          required: true
+
+        - id: data_type
+          label: データ型
+          type: Select
+          required: true
+          options:
+            - number
+            - string
+            - boolean
+
+        - id: unit
+          label: 単位
+          type: Input
+          required: false
+
+        - id: weight
+          label: 重み設定
+          type: NumberInput
+          required: true
+          default: 1.0
+
+        - id: display_order
+          label: 表示順
+          type: NumberInput
+          required: true
+
+      validation:
+        column_count_min: 1
+        column_count_max: 256
+        column_name_unique_per_device: true
+        column_name_required: true
+        display_name_required: true
+        data_type_required: true
+        weight_required: true
+
+  # ===========================================================================
+  # 10. THRESHOLD RULES
+  # ===========================================================================
+
+  threshold_rules:
+    hierarchy: company -> site -> device -> device_column -> threshold
+    target: device_column
+    multiple_thresholds_per_device: true
+    multiple_thresholds_per_column: true
+    error_data_excluded_from_threshold_check: true
+    notify_method: email
+    notification_emails_format: comma_separated
+    suppress_repeat_notification: true
+    require_return_to_normal_before_realert: true
+
+    threshold_form_rule:
+      select_flow:
+        - company_id
+        - site_id
+        - device_id
+        - column_name
+
+      column_options_source: GET /devices/{device_id}/columns
+
+      required_fields:
+        - device_id
+        - column_name
+        - threshold_name
+        - notification_emails
+        - suppress_minutes
+
+      validation:
+        at_least_one_limit_required: true
+        lower_must_be_less_than_upper: true
+        duplicate_threshold_name_per_device_column_not_allowed: true
+
+  # ===========================================================================
+  # 11. DATA RECEIVE RULES
+  # ===========================================================================
+
+  data_receive_rules:
+    endpoint: /api/v1/data
+    method: POST
+    protocol: HTTPS
+    auth: basic_auth
+    common_api: true
+
+    request_format:
+      - application/json
+      - text/csv
+
+    processing_flow:
+      - authenticate_device
+      - identify_device
+      - resolve_company_and_site_from_device
+      - store_raw_data_immediately
+      - enqueue_parse_job
+      - parse_data
+      - validate_data
+      - store_parsed_data
+      - apply_column_weight
+      - threshold_check_by_device_column
+      - update_latest_value
+      - update_device_status
+
+    json_format:
+      type: fixed_key_object
+      example:
+        device_id: DEVICE001
+        timestamp: "2026-05-14T10:00:00+09:00"
+        values:
+          temp: 25.1
+          humidity: 60
+
+    csv_format:
+      header: configurable
+      mapping: device_setting_defined
+
+    invalid_data_policy:
+      accept: true
+      store_raw: true
+      mark_as_error: true
+      exclude_from_threshold_check: true
+
+  # ===========================================================================
+  # 12. DATA MODEL
+  # ===========================================================================
+
+  data_model:
+    tables:
+      companies:
+        purpose: 企業マスタ
+        fields:
+          - id
+          - name
+          - status
+          - created_at
+          - updated_at
+
+      sites:
+        purpose: 現場マスタ
+        relationship: company_has_many_sites
+        fields:
+          - id
+          - company_id
+          - site_name
+          - address
+          - status
+          - created_at
+          - updated_at
+
+      users:
+        purpose: ユーザー管理
+        fields:
+          - id
+          - company_id
+          - site_id
+          - role
+          - login_id
+          - user_name
+          - password_hash
+          - status
+          - created_at
+          - updated_at
+
+      devices:
+        purpose: デバイス管理
+        relationship: site_has_many_devices
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - device_name
+          - auth_id
+          - auth_password_hash
+          - input_type
+          - csv_header_mode
+          - status
+          - created_at
+          - updated_at
+
+      device_columns:
+        purpose: デバイスから受け取るカラム定義
+        relationship: device_has_many_columns
+        fields:
+          - id
+          - device_id
+          - column_name
+          - display_name
+          - data_type
+          - unit
+          - weight
+          - display_order
+          - created_at
+          - updated_at
+
+      raw_data:
+        purpose: 受信した元データを即時保存する
+        table_type: normal_table
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - received_at
+          - payload
+          - is_error
+          - error_message
+
+      parsed_data:
+        purpose: 正規化済み時系列データ
+        table_type: hypertable
+        time_column: device_timestamp
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - device_timestamp
+          - server_timestamp
+          - column_name
+          - raw_value_number
+          - display_value_number
+          - value_string
+          - value_boolean
+          - is_valid
+          - error_message
+
+      parsed_data_1min:
+        purpose: 1分平均データ
+        table_type: continuous_aggregate
+        source: parsed_data
+        interval: 1 minute
+        aggregation:
+          numeric: avg
+          non_numeric: exclude
+        grouping:
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+
+      parsed_data_1hour:
+        purpose: 1時間平均データ
+        table_type: continuous_aggregate
+        source: parsed_data_1min
+        interval: 1 hour
+        aggregation:
+          numeric: avg
+          non_numeric: exclude
+        grouping:
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+
+      latest_values:
+        purpose: デバイス一覧表示用の最新値
+        fields:
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+          - raw_value
+          - display_value
+          - device_timestamp
+          - server_timestamp
+          - threshold_status
+
+      thresholds:
+        purpose: 閾値設定
+        relationship: device_column_has_many_thresholds
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+          - threshold_name
+          - upper_limit
+          - lower_limit
+          - notify_emails
+          - suppress_minutes
+          - last_notified_at
+          - current_status
+
+      threshold_events:
+        purpose: 閾値超過履歴
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+          - threshold_id
+          - occurred_at
+          - value
+          - threshold_name
+          - status
+
+      device_status:
+        purpose: 通信状態管理
+        fields:
+          - company_id
+          - site_id
+          - device_id
+          - last_received_at
+          - estimated_interval_seconds
+          - status
+
+      audit_logs:
+        purpose: 設定変更履歴
+        fields:
+          - id
+          - user_id
+          - company_id
+          - site_id
+          - action
+          - target_type
+          - target_id
+          - before_value
+          - after_value
+          - created_at
+
+  # ===========================================================================
+  # 13. TIMESCALEDB STRATEGY
+  # ===========================================================================
+
+  timescaledb_strategy:
+    hypertables:
+      parsed_data:
+        time_column: device_timestamp
+        partition_key: device_id
+        indexes:
+          - company_id + site_id + device_id + device_timestamp
+          - device_id + column_name + device_timestamp
+
+    downsampling:
+      enabled: true
+      method: continuous_aggregate
+      execution: scheduled_automatic
+
+      layers:
+        - name: parsed_data_1min
+          source: parsed_data
+          interval: 1 minute
+          aggregation: avg
+
+        - name: parsed_data_1hour
+          source: parsed_data_1min
+          interval: 1 hour
+          aggregation: avg
+
+      delete_source_data:
+        enabled: true
+        rule: ダウンサンプリング完了後に元データを削除する
+        targets:
+          - parsed_data
+          - parsed_data_1min
+        safety_condition:
+          - downsample_completed
+          - target_data_exists
+        exact_delete_timing: pending
+
+    retention:
+      parsed_data:
+        retention_period: pending
+        delete_after_downsampling: true
+
+      parsed_data_1min:
+        retention_period: pending
+        delete_after_1hour_downsampling: true
+
+      parsed_data_1hour:
+        retention_period: long_term
+
+    graph_data_selection:
+      rule: 表示期間に応じて参照テーブルを切り替える
+      mapping:
+        short_range:
+          source: parsed_data
+        middle_range:
+          source: parsed_data_1min
+        long_range:
+          source: parsed_data_1hour
+      exact_range_mapping: pending
+
+  # ===========================================================================
+  # 14. API INTERFACE
+  # ===========================================================================
+
+  api_interface:
+    base_path: /api/v1
+    response_format: json
+
+    common_response:
+      success:
+        success: true
+        data: object_or_array
+
+      error:
+        success: false
+        error:
+          code: string
+          message: string
+          details: optional
+
+    authorization_policy:
+      required: true
+      rule: すべてのクライアント向けAPIはログインユーザーの権限範囲で絞り込む
+
+    endpoints:
+      auth:
+        - POST /auth/login
+        - POST /auth/logout
+        - POST /auth/password-reset/request
+        - POST /auth/password-reset/execute
+
+      dashboard:
+        - GET /dashboard/summary
+
+      sites:
+        - GET /sites
+        - POST /sites
+        - PUT /sites/{site_id}
+        - POST /sites/{site_id}/disable
+
+      users:
+        - GET /users
+        - POST /users
+        - PUT /users/{user_id}
+        - POST /users/{user_id}/reset-password
+
+      devices:
+        - GET /devices
+        - GET /devices/latest
+        - GET /devices/{device_id}
+        - POST /devices
+        - PUT /devices/{device_id}
+        - POST /devices/{device_id}/disable
+        - GET /devices/{device_id}/columns
+        - GET /devices/{device_id}/graph
+
+      thresholds:
+        - GET /thresholds
+        - POST /thresholds
+        - PUT /thresholds/{threshold_id}
+        - DELETE /thresholds/{threshold_id}
+
+      masters:
+        - GET /masters/companies
+        - GET /masters/sites
+        - GET /masters/devices
+        - GET /devices/{device_id}/columns
+
+      audit_logs:
+        - GET /audit-logs
+
+      device_receive:
+        - POST /data
+
+  # ===========================================================================
+  # 15. UI SPECIFICATION
+  # ===========================================================================
+
+  ui_specification:
+    global:
+      framework: React
+      language: TypeScript
+      ui_library: Chakra UI
+      chart_library: Chart.js
+      chart_wrapper: react-chartjs-2
+      target_device: desktop_browser
+      responsive: minimal
+      auto_refresh: false
+      design_style: simple_admin_console
+
+    common_layout:
+      type: header_sidebar_main
+      header:
+        show_system_name: true
+        show_login_user: true
+        show_logout_button: true
+
+      sidebar:
+        enabled: true
+        menu_items:
+          - id: dashboard
+            label: ダッシュボード
+            route: /dashboard
+          - id: devices
+            label: デバイス一覧
+            route: /devices
+          - id: site_settings
+            label: 現場設定
+            route: /settings/sites
+          - id: user_settings
+            label: ユーザー設定
+            route: /settings/users
+          - id: device_settings
+            label: デバイス設定
+            route: /settings/devices
+          - id: threshold_settings
+            label: 閾値設定
+            route: /settings/thresholds
+          - id: audit_logs
+            label: 監査ログ
+            route: /settings/audit-logs
+
+    common_filter_component:
+      id: company_site_device_filter
+      fields:
+        - company_id
+        - site_id
+        - device_id
+      enabled_rule_ref: common_filter_policy.enabled_rule
+
+    screen_transition:
+      initial_screen: login
+      transitions:
+        - { id: T001, from: login, event: login_success, to: dashboard }
+        - { id: T002, from: login, event: click_password_reset, to: password_reset }
+        - { id: T003, from: password_reset, event: back_to_login, to: login }
+        - { id: T004, from: devices, event: click_device_row, to: device_graph }
+        - { id: T005, from: device_graph, event: click_back, to: devices }
+        - { id: T006, from: common_sidebar, event: click_site_settings, to: site_settings }
+        - { id: T007, from: common_sidebar, event: click_user_settings, to: user_settings }
+        - { id: T008, from: common_sidebar, event: click_device_settings, to: device_settings }
+        - { id: T009, from: common_sidebar, event: click_threshold_settings, to: threshold_settings }
+        - { id: T010, from: common_sidebar, event: click_audit_logs, to: audit_logs }
+        - { id: T011, from: any_authenticated_screen, event: logout, to: login }
+
+    screens:
+      login:
+        route: /login
+        layout: centered_card
+        authentication_required: false
+        components:
+          - id: login_id
+            type: Input
+            label: ログインID
+            required: true
+
+          - id: password
+            type: Input
+            input_type: password
+            label: パスワード
+            required: true
+
+          - id: login_button
+            type: Button
+            label: ログイン
+            action: call_login_api
+
+          - id: password_reset_link
+            type: Link
+            label: パスワード再発行
+            action: navigate_password_reset
+
+      password_reset:
+        route: /password-reset
+        layout: centered_card
+        authentication_required: false
+        components:
+          - id: login_id
+            type: Input
+            label: ログインID
+            required: true
+
+          - id: send_reset_mail_button
+            type: Button
+            label: 再発行メール送信
+            action: call_password_reset_request_api
+
+          - id: back_to_login_link
+            type: Link
+            label: ログイン画面へ戻る
+            action: navigate_login
+
+      dashboard:
+        route: /dashboard
+        layout: standard_admin
+        authentication_required: true
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+        components:
+          - id: summary_cards
+            type: SimpleGrid
+            items:
+              - total_sites
+              - total_devices
+              - normal_devices
+              - disconnected_devices
+              - threshold_alert_devices
+
+      devices:
+        route: /devices
+        layout: standard_admin
+        authentication_required: true
+        purpose: 現場別・デバイス別の最新値一覧
+        auto_refresh: false
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+            - device_id
+        components:
+          - id: refresh_button
+            type: Button
+            label: 更新
+            action: reload_device_latest_table
+
+          - id: device_latest_table
+            type: Table
+            datasource: GET /devices/latest
+            row_click_action: navigate_device_graph
+            columns:
+              - company_name
+              - site_name
+              - device_name
+              - device_id
+              - latest_values
+              - latest_received_at
+              - communication_status
+              - alert_status
+
+      device_graph:
+        route: /devices/{device_id}/graph
+        layout: standard_admin
+        authentication_required: true
+        purpose: 選択デバイスのカラム別時系列グラフ表示
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+            - device_id
+        components:
+          - id: graph_filter_area
+            type: HStack
+            fields:
+              - id: period_preset
+                type: Select
+                label: 表示期間
+                default: 24h
+                options:
+                  - { label: 1分, value: 1m }
+                  - { label: 10分, value: 10m }
+                  - { label: 1時間, value: 1h }
+                  - { label: 12時間, value: 12h }
+                  - { label: 24時間, value: 24h }
+                  - { label: 3日, value: 3d }
+                  - { label: 7日, value: 7d }
+                  - { label: 2週間, value: 2w }
+                  - { label: 1ヶ月, value: 1month }
+                  - { label: 3ヶ月, value: 3months }
+                  - { label: 6ヶ月, value: 6months }
+                  - { label: 1年, value: 1year }
+                  - { label: 期間指定, value: custom }
+
+              - id: start_datetime
+                type: Input
+                input_type: datetime-local
+                visible_when:
+                  period_preset: custom
+
+              - id: end_datetime
+                type: Input
+                input_type: datetime-local
+                visible_when:
+                  period_preset: custom
+
+          - id: graph_area
+            type: VStack
+            datasource: GET /devices/{device_id}/graph
+            chart:
+              library: Chart.js
+              wrapper: react-chartjs-2
+              chart_type: line
+              one_chart_per_column: true
+              y_axis_auto_scale: true
+              show_unit_on_y_axis: true
+              show_threshold_lines: true
+              show_threshold_exceeded_points: true
+              show_invalid_data: false
+
+      site_settings:
+        route: /settings/sites
+        layout: table_with_modal_form
+        authentication_required: true
+        editable_roles:
+          - system_admin
+          - company_admin
+        hidden_roles:
+          - general_user
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+        components:
+          - id: site_table
+            type: Table
+            datasource: GET /sites
+            columns:
+              - company_name
+              - site_name
+              - address
+              - status
+
+          - id: add_site_button
+            type: Button
+            label: 現場追加
+            action:
+              open_modal:
+                target: site_form_modal
+                mode: create
+
+          - id: site_form_modal
+            type: ModalForm
+            usage:
+              - create
+              - update
+            title_rule:
+              create: 現場追加
+              update: 現場変更
+            fields:
+              - id: company_id
+                type: Select
+                label: 企業
+                required: true
+              - id: site_name
+                type: Input
+                label: 現場名
+                required: true
+              - id: address
+                type: Input
+                label: 住所
+                required: false
+
+      user_settings:
+        route: /settings/users
+        layout: table_with_modal_form
+        authentication_required: true
+        editable_roles:
+          - system_admin
+          - company_admin
+          - site_admin
+        hidden_roles:
+          - general_user
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+        components:
+          - id: user_table
+            type: Table
+            datasource: GET /users
+            interaction:
+              double_click_row:
+                action: open_user_form_modal
+                mode: update
+            columns:
+              - login_id
+              - user_name
+              - role
+              - company_name
+              - site_name
+              - status
+              - created_at
+              - updated_at
+
+          - id: add_user_button
+            type: Button
+            label: ユーザー追加
+            action:
+              open_modal:
+                target: user_form_modal
+                mode: create
+
+          - id: user_form_modal
+            type: ModalForm
+            usage:
+              - create
+              - update
+            rule_ref:
+              - user_management_rules.user_scope_rule
+              - user_management_rules.user_form_role_selection_rule
+              - user_management_rules.operation_user_limit
+              - user_management_rules.password_policy
+            title_rule:
+              create: ユーザー追加
+              update: ユーザー変更
+            open_trigger:
+              create:
+                event: click_add_user_button
+                mode: create
+              update:
+                event: double_click_user_table_row
+                mode: update
+            mode_behavior_ref: user_management_rules.user_form_modal.mode_behavior
+            fields:
+              - id: company_id
+                type: Select
+                label: 企業
+                required_rule: depends_on_selected_role
+
+              - id: site_id
+                type: Select
+                label: 現場
+                depends_on: company_id
+                required_rule: depends_on_selected_role
+
+              - id: role
+                type: Select
+                label: 権限
+                options_rule:
+                  ref: user_management_rules.user_form_role_selection_rule
+                required: true
+
+              - id: login_id
+                type: Input
+                label: ログインID
+                required: true
+
+              - id: user_name
+                type: Input
+                label: ユーザー名
+                required: true
+
+              - id: password
+                type: Input
+                input_type: password
+                label: 初期パスワード
+                visible_rule:
+                  mode: create
+                required_rule:
+                  mode: create
+
+              - id: admin_reset_password_button
+                type: Button
+                label: パスワードリセット
+                visible_rule:
+                  mode: update
+                action:
+                  api:
+                    method: POST
+                    endpoint: /users/{user_id}/reset-password
+
+      device_settings:
+        route: /settings/devices
+        layout: table_with_modal_form
+        authentication_required: true
+        editable_roles:
+          - system_admin
+          - company_admin
+          - site_admin
+        hidden_roles:
+          - general_user
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+            - device_id
+        components:
+          - id: device_table
+            type: Table
+            datasource: GET /devices
+            interaction:
+              double_click_row:
+                action: open_device_form_modal
+                mode: update
+            columns:
+              - company_name
+              - site_name
+              - device_name
+              - device_id
+              - input_type
+              - status
+
+          - id: add_device_button
+            type: Button
+            label: デバイス追加
+            action:
+              open_modal:
+                target: device_form_modal
+                mode: create
+
+          - id: device_form_modal
+            type: ModalForm
+            usage:
+              - create
+              - update
+            rule_ref:
+              - device_management_rules.device_form_modal
+              - device_management_rules.auth_password_policy
+              - device_management_rules.column_settings
+            title_rule:
+              create: デバイス追加
+              update: デバイス変更
+            open_trigger:
+              create:
+                event: click_add_device_button
+                mode: create
+              update:
+                event: double_click_device_table_row
+                mode: update
+            fields:
+              - id: company_id
+                type: Select
+                label: 企業
+                required: true
+
+              - id: site_id
+                type: Select
+                label: 現場
+                depends_on: company_id
+                required: true
+
+              - id: device_name
+                type: Input
+                label: デバイス名
+                required: true
+
+              - id: device_id
+                type: Input
+                label: デバイスID
+                required: true
+                validation: ascii_symbol_only_no_japanese
+
+              - id: auth_id
+                type: Input
+                label: 認証ID
+                required: true
+
+              - id: auth_password
+                type: Input
+                input_type: password
+                label: 認証パスワード
+                required_rule:
+                  create: true
+                  update: false
+                update_method: overwrite_when_input_exists
+
+              - id: input_type
+                type: Select
+                label: データ入力タイプ
+                required: true
+                options:
+                  - json
+                  - csv
+
+              - id: csv_header_mode
+                type: Select
+                label: CSVヘッダ
+                visible_when:
+                  input_type: csv
+                options:
+                  - header_exists
+                  - no_header
+
+              - id: column_settings_table
+                type: EditableTable
+                label: カラム設定
+                min_rows: 1
+                max_rows: 256
+                required: true
+                columns:
+                  - id: column_name
+                    label: カラム名
+                    type: Input
+                    required: true
+                    validation: ascii_symbol_only_no_japanese
+
+                  - id: display_name
+                    label: 表示名
+                    type: Input
+                    required: true
+
+                  - id: data_type
+                    label: データ型
+                    type: Select
+                    required: true
+                    options:
+                      - number
+                      - string
+                      - boolean
+
+                  - id: unit
+                    label: 単位
+                    type: Input
+                    required: false
+
+                  - id: weight
+                    label: 重み設定
+                    type: NumberInput
+                    required: true
+                    default: 1.0
+
+                  - id: display_order
+                    label: 表示順
+                    type: NumberInput
+                    required: true
+
+      threshold_settings:
+        route: /settings/thresholds
+        layout: table_with_modal_form
+        authentication_required: true
+        editable_roles:
+          - system_admin
+          - company_admin
+          - site_admin
+        hidden_roles:
+          - general_user
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+            - device_id
+            - column_name
+          column_name:
+            type: Select
+            label: カラム
+            depends_on: device_id
+            datasource: GET /devices/{device_id}/columns
+        components:
+          - id: threshold_table
+            type: Table
+            datasource: GET /thresholds
+            filter_by:
+              - company_id
+              - site_id
+              - device_id
+              - column_name
+            columns:
+              - company_name
+              - site_name
+              - device_name
+              - column_display_name
+              - threshold_name
+              - lower_limit
+              - upper_limit
+              - notification_emails
+              - suppress_minutes
+
+          - id: add_threshold_button
+            type: Button
+            label: 閾値追加
+            action:
+              open_modal:
+                target: threshold_form_modal
+                mode: create
+
+          - id: threshold_form_modal
+            type: ModalForm
+            usage:
+              - create
+              - update
+            fields:
+              - id: company_id
+                type: HiddenOrSelect
+                source: threshold_filter.company_id
+
+              - id: site_id
+                type: HiddenOrSelect
+                source: threshold_filter.site_id
+
+              - id: device_id
+                type: HiddenOrSelect
+                source: threshold_filter.device_id
+
+              - id: column_name
+                type: HiddenOrSelect
+                source: threshold_filter.column_name
+
+              - id: threshold_name
+                type: Input
+                label: 閾値名
+                required: true
+
+              - id: lower_limit
+                type: NumberInput
+                label: 下限値
+                required: false
+
+              - id: upper_limit
+                type: NumberInput
+                label: 上限値
+                required: false
+
+              - id: notification_emails
+                type: Textarea
+                label: 通知先メールアドレス
+                format: comma_separated_emails
+                required: true
+
+              - id: suppress_minutes
+                type: NumberInput
+                label: 再通知抑止時間（分）
+                required: true
+
+      audit_logs:
+        route: /settings/audit-logs
+        layout: standard_admin
+        authentication_required: true
+        hidden_roles:
+          - general_user
+        filter:
+          use_common_filter: true
+          fields:
+            - company_id
+            - site_id
+        components:
+          - id: audit_log_table
+            type: Table
+            datasource: GET /audit-logs
+            columns:
+              - changed_at
+              - changed_by
+              - company_name
+              - site_name
+              - action
+              - target_type
+              - target_id
+              - before_value
+              - after_value
+
+  # ===========================================================================
+  # 16. INFRASTRUCTURE
+  # ===========================================================================
+
+  infrastructure:
+    docker_compose:
+      services:
+        frontend:
+          build: ./frontend
+          ports:
+            - "5173:5173"
+          depends_on:
+            - backend
+
+        backend:
+          build: ./backend
+          ports:
+            - "8000:8000"
+          environment:
+            DB_HOST: timescaledb
+            DB_PORT: 5432
+            DB_NAME: iot_platform
+            DB_USER: iot_user
+            DB_PASSWORD: iot_password
+            TZ: Asia/Tokyo
+          depends_on:
+            - timescaledb
+
+        timescaledb:
+          image: timescale/timescaledb:latest-pg17
+          ports:
+            - "5432:5432"
+          environment:
+            POSTGRES_DB: iot_platform
+            POSTGRES_USER: iot_user
+            POSTGRES_PASSWORD: iot_password
+            TZ: Asia/Tokyo
+          volumes:
+            - timescaledb_data:/var/lib/postgresql/data
+            - ./infra/initdb:/docker-entrypoint-initdb.d
+          healthcheck:
+            test: pg_isready -U iot_user -d iot_platform
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+      volumes:
+        - timescaledb_data
+
+  # ===========================================================================
+  # 17. NON FUNCTIONAL REQUIREMENTS
+  # ===========================================================================
+
+  non_functional_requirements:
+    data_loss_prevention:
+      required: true
+      implementation:
+        - store_raw_data_immediately
+        - async_queue_processing
+        - retry_processing
+        - keep_raw_error_data
+
+    scalability:
+      target: 数万台規模
+      devices_per_site: tens
+      columns_per_device: multiple
+      minimum_interval_seconds: 1
+
+    security:
+      https_required_for_device_api: true
+      basic_auth_for_device: true
+      company_data_isolation: true
+      site_scope_access_control: true
+      api_authorization_scope_required: true
+
+    pending:
+      availability: pending
+      backup: pending
+      disaster_recovery: pending
+      performance_target: pending
+      additional_security_controls: pending
+
+  # ===========================================================================
+  # 18. FORBIDDEN RULES
+  # ===========================================================================
+
+  forbidden_rules:
+    - auto_refresh_screen
+    - websocket
+    - external_integration
+    - data_search_feature
+    - aggregation_other_than_timescaledb_downsampling
+    - discard_invalid_received_data
+    - change_ui_library
+    - change_chart_library
+    - use_department_model
+    - use_assigned_device_scope_for_general_user
+
+  # ===========================================================================
+  # 19. AI EXECUTION RULES
+  # ===========================================================================
+
+  ai_execution_rules:
+    do_not_add_unrequested_features: true
+    do_not_change_technology_stack: true
+    do_not_change_ui_library: true
+    do_not_change_chart_library: true
+    do_not_discard_invalid_data: true
+    unresolved_items_must_remain_pending: true
+    use_company_site_device_column_threshold_hierarchy: true
+    do_not_use_department_hierarchy: true
+    general_user_scope_must_be_own_site_view_only: true
+    all_client_apis_must_apply_role_scope_filter: true
+    user_role_selection_must_follow_company_site_selection: true
+    user_form_must_support_create_and_update: true
+    device_form_must_support_create_and_update: true
+    device_update_must_allow_auth_password_overwrite: true
+    device_columns_must_be_editable_table: true
+    device_column_count_range_must_be_1_to_256: true
+    display_value_must_apply_column_weight: true
+    inventory_must_be_checked_before_regeneration: true
+
+  # ===========================================================================
+  # 20. PENDING ITEMS
+  # ===========================================================================
+
+  pending_items:
+    - raw_data_retention_period
+    - parsed_data_1min_retention_period
+    - exact_downsampling_delete_timing
+    - graph_range_to_table_mapping
+    - performance_target_tps
+    - availability_sla
+    - backup_policy
+    - disaster_recovery_policy
+    - additional_security_controls
+```

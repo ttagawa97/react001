@@ -1,0 +1,399 @@
+# =============================================================================
+# IoT Platform API Specification
+# =============================================================================
+#
+# File Name:
+#   04_api_spec.yaml
+#
+# Purpose:
+#   IoTプラットフォームのREST API仕様、
+#   デバイス受信API、認証API、管理API、
+#   Request/Response形式、権限制御を定義する。
+#
+# Spec Version:
+#   1.9.0
+#
+# Last Updated:
+#   2026-06-01
+#
+# Authoring Agent:
+#   OpenAI GPT-5.5
+#
+# =============================================================================
+
+api_spec:
+
+  # ===========================================================================
+  # 01. METADATA
+  # ===========================================================================
+
+  metadata:
+    system_name: iot_platform
+    spec_version: 1.9.0
+    document_type: api_specification
+    base_path: /api/v1
+
+  # ===========================================================================
+  # 02. COMMON API RULES
+  # ===========================================================================
+
+  common:
+    response_format: json
+
+    success_response:
+      success: true
+      data: object_or_array
+
+    error_response:
+      success: false
+      error:
+        code: string
+        message: string
+        details: optional
+
+    authorization:
+      required_for_client_api: true
+      rule: ログインユーザーの権限範囲で必ず参照・更新対象を制限する
+
+  # ===========================================================================
+  # 03. AUTH API
+  # ===========================================================================
+
+  auth_api:
+    - id: login
+      method: POST
+      path: /auth/login
+
+    - id: logout
+      method: POST
+      path: /auth/logout
+
+    - id: password_reset_request
+      method: POST
+      path: /auth/password-reset/request
+
+    - id: password_reset_execute
+      method: POST
+      path: /auth/password-reset/execute
+
+  # ===========================================================================
+  # 04. DEVICE RECEIVE API
+  # ===========================================================================
+
+  device_receive_api:
+    id: receive_device_data
+    method: POST
+    path: /data
+    full_path: /api/v1/data
+    protocol: HTTPS
+    auth: basic_auth
+    request_format:
+      - application/json
+      - text/csv
+
+    behavior:
+      - authenticate_device
+      - identify_device
+      - store_raw_data_immediately
+      - enqueue_parse_job
+      - return_accepted_response
+
+    error_policy:
+      invalid_data: accept_and_record
+      parse_error: accept_and_record
+      auth_error: reject
+
+  # ===========================================================================
+  # 05. COMPANY API
+  # ===========================================================================
+
+  company_api:
+    - id: list_companies
+      method: GET
+      path: /companies
+      allowed_roles:
+        - system_admin
+
+    - id: create_company
+      method: POST
+      path: /companies
+      allowed_roles:
+        - system_admin
+      request:
+        name: string
+        status: active_or_inactive
+
+    - id: update_company
+      method: PUT
+      path: /companies/{company_id}
+      allowed_roles:
+        - system_admin
+
+    - id: disable_company
+      method: POST
+      path: /companies/{company_id}/disable
+      allowed_roles:
+        - system_admin
+
+  # ===========================================================================
+  # 06. SITE API
+  # ===========================================================================
+
+  site_api:
+    - id: list_sites
+      method: GET
+      path: /sites
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+
+    - id: create_site
+      method: POST
+      path: /sites
+      allowed_roles:
+        - system_admin
+        - company_admin
+
+    - id: update_site
+      method: PUT
+      path: /sites/{site_id}
+      allowed_roles:
+        - system_admin
+        - company_admin
+
+    - id: disable_site
+      method: POST
+      path: /sites/{site_id}/disable
+      allowed_roles:
+        - system_admin
+        - company_admin
+
+  # ===========================================================================
+  # 07. USER API
+  # ===========================================================================
+
+  user_api:
+    - id: list_users
+      method: GET
+      path: /users
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: create_user
+      method: POST
+      path: /users
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: update_user
+      method: PUT
+      path: /users/{user_id}
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: reset_user_password
+      method: POST
+      path: /users/{user_id}/reset-password
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+  # ===========================================================================
+  # 08. DEVICE API
+  # ===========================================================================
+
+  device_api:
+    - id: list_devices
+      method: GET
+      path: /devices
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+
+    - id: list_latest_devices
+      method: GET
+      path: /devices/latest
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+
+    - id: get_device
+      method: GET
+      path: /devices/{device_id}
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+
+    - id: create_device
+      method: POST
+      path: /devices
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: update_device
+      method: PUT
+      path: /devices/{device_id}
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: disable_device
+      method: POST
+      path: /devices/{device_id}/disable
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: get_device_columns
+      method: GET
+      path: /devices/{device_id}/columns
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+
+    - id: get_device_graph
+      method: GET
+      path: /devices/{device_id}/graph
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+
+  # ===========================================================================
+  # 09. THRESHOLD API
+  # ===========================================================================
+
+  threshold_api:
+    - id: list_thresholds
+      method: GET
+      path: /thresholds
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: create_threshold
+      method: POST
+      path: /thresholds
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: update_threshold
+      method: PUT
+      path: /thresholds/{threshold_id}
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+    - id: delete_threshold
+      method: DELETE
+      path: /thresholds/{threshold_id}
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+  # ===========================================================================
+  # 10. DASHBOARD API
+  # ===========================================================================
+
+  dashboard_api:
+    - id: dashboard_summary
+      method: GET
+      path: /dashboard/summary
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+
+  # ===========================================================================
+  # 11. MASTER API
+  # ===========================================================================
+
+  master_api:
+    - id: master_companies
+      method: GET
+      path: /masters/companies
+
+    - id: master_sites
+      method: GET
+      path: /masters/sites
+
+    - id: master_devices
+      method: GET
+      path: /masters/devices
+
+  # ===========================================================================
+  # 12. AUDIT LOG API
+  # ===========================================================================
+
+  audit_log_api:
+    - id: list_audit_logs
+      method: GET
+      path: /audit-logs
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+
+  # ===========================================================================
+  # 13. AUTHORIZATION SCOPE RULES
+  # ===========================================================================
+
+  authorization_scope_rules:
+    system_admin:
+      company_scope: all
+      site_scope: all
+      device_scope: all
+
+    company_admin:
+      company_scope: own_company
+      site_scope: own_company_sites
+      device_scope: own_company_devices
+
+    site_admin:
+      company_scope: own_company
+      site_scope: own_site
+      device_scope: own_site_devices
+
+    general_user:
+      company_scope: own_company
+      site_scope: own_site
+      device_scope: own_site_devices
+      write_permission: false
+
+  # ===========================================================================
+  # 14. REFERENCES
+  # ===========================================================================
+
+  references:
+    overall_spec: 01_overall_spec.yaml
+    data_spec: 02_data_spec.yaml
+    ui_spec: 03_ui_spec.yaml
+    infra_spec: 05_infra_spec.yaml

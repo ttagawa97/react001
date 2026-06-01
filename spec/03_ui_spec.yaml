@@ -1,0 +1,866 @@
+# =============================================================================
+# IoT Platform UI Specification
+# =============================================================================
+#
+# File Name:
+#   03_ui_spec.yaml
+#
+# Spec Version:
+#   1.9.0
+#
+# Last Updated:
+#   2026-06-01
+#
+# Revision:
+#   - 企業マスタ管理画面 company_settings を追加
+#   - company_settings はシステム管理者のみ表示
+#   - 企業一覧、企業追加、企業変更、企業無効化を画面操作可能とする
+#
+# =============================================================================
+
+ui_spec:
+
+  # ===========================================================================
+  # 01. METADATA
+  # ===========================================================================
+
+  metadata:
+    system_name: iot_platform
+    spec_version: 1.9.0
+    document_type: ui_specification
+    depends_on:
+      - 01_overall_spec.yaml
+      - 02_data_spec.yaml
+      - 04_api_spec.yaml
+      - 05_infra_spec.yaml
+
+  # ===========================================================================
+  # 02. GLOBAL UI SETTINGS
+  # ===========================================================================
+
+  global:
+    framework: React
+    language: TypeScript
+    ui_library: Chakra UI
+    chart_library: Chart.js
+    chart_wrapper: react-chartjs-2
+    target_device: desktop_browser
+    responsive: minimal
+    auto_refresh: false
+    design_style: simple_admin_console
+
+  # ===========================================================================
+  # 03. COMMON LAYOUT
+  # ===========================================================================
+
+  common_layout:
+    type: header_sidebar_main
+
+    header:
+      show_system_name: true
+      show_login_user: true
+      show_logout_button: true
+
+    sidebar:
+      enabled: true
+      menu_items:
+        - { id: dashboard, label: ダッシュボード, route: /dashboard }
+        - { id: devices, label: デバイス一覧, route: /devices }
+        - { id: company_settings, label: 企業設定, route: /settings/companies }
+        - { id: site_settings, label: 現場設定, route: /settings/sites }
+        - { id: user_settings, label: ユーザー設定, route: /settings/users }
+        - { id: device_settings, label: デバイス設定, route: /settings/devices }
+        - { id: threshold_settings, label: 閾値設定, route: /settings/thresholds }
+        - { id: audit_logs, label: 監査ログ, route: /settings/audit-logs }
+
+    menu_visibility:
+      company_settings:
+        visible_roles:
+          - system_admin
+        hidden_roles:
+          - company_admin
+          - site_admin
+          - general_user
+
+  # ===========================================================================
+  # 04. COMMON FILTER COMPONENT
+  # ===========================================================================
+
+  common_filter_component:
+    id: company_site_device_filter
+    fields:
+      - company_id
+      - site_id
+      - device_id
+    enabled_rule_ref: 01_overall_spec.common_filter_policy.enabled_rule
+
+  # ===========================================================================
+  # 05. SCREEN TRANSITION
+  # ===========================================================================
+
+  screen_transition:
+    initial_screen: login
+    transitions:
+      - { id: T001, from: login, event: login_success, to: dashboard }
+      - { id: T002, from: login, event: click_password_reset, to: password_reset }
+      - { id: T003, from: password_reset, event: back_to_login, to: login }
+      - { id: T004, from: devices, event: click_device_row, to: device_graph }
+      - { id: T005, from: device_graph, event: click_back, to: devices }
+      - { id: T006, from: common_sidebar, event: click_company_settings, to: company_settings }
+      - { id: T007, from: common_sidebar, event: click_site_settings, to: site_settings }
+      - { id: T008, from: common_sidebar, event: click_user_settings, to: user_settings }
+      - { id: T009, from: common_sidebar, event: click_device_settings, to: device_settings }
+      - { id: T010, from: common_sidebar, event: click_threshold_settings, to: threshold_settings }
+      - { id: T011, from: common_sidebar, event: click_audit_logs, to: audit_logs }
+      - { id: T012, from: any_authenticated_screen, event: logout, to: login }
+
+  # ===========================================================================
+  # 06. SCREENS
+  # ===========================================================================
+
+  screens:
+
+    # -------------------------------------------------------------------------
+    # 06-01. LOGIN SCREEN
+    # -------------------------------------------------------------------------
+
+    login:
+      route: /login
+      layout: centered_card
+      authentication_required: false
+      components:
+        - id: login_id
+          type: Input
+          label: ログインID
+          required: true
+
+        - id: password
+          type: Input
+          input_type: password
+          label: パスワード
+          required: true
+
+        - id: login_button
+          type: Button
+          label: ログイン
+          action: call_login_api
+
+        - id: password_reset_link
+          type: Link
+          label: パスワード再発行
+          action: navigate_password_reset
+
+    # -------------------------------------------------------------------------
+    # 06-02. PASSWORD RESET SCREEN
+    # -------------------------------------------------------------------------
+
+    password_reset:
+      route: /password-reset
+      layout: centered_card
+      authentication_required: false
+      components:
+        - id: login_id
+          type: Input
+          label: ログインID
+          required: true
+
+        - id: send_reset_mail_button
+          type: Button
+          label: 再発行メール送信
+          action: call_password_reset_request_api
+
+        - id: back_to_login_link
+          type: Link
+          label: ログイン画面へ戻る
+          action: navigate_login
+
+    # -------------------------------------------------------------------------
+    # 06-03. DASHBOARD SCREEN
+    # -------------------------------------------------------------------------
+
+    dashboard:
+      route: /dashboard
+      layout: standard_admin
+      authentication_required: true
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+      components:
+        - id: summary_cards
+          type: SimpleGrid
+          items:
+            - total_sites
+            - total_devices
+            - normal_devices
+            - disconnected_devices
+            - threshold_alert_devices
+
+    # -------------------------------------------------------------------------
+    # 06-04. DEVICES SCREEN
+    # -------------------------------------------------------------------------
+
+    devices:
+      route: /devices
+      layout: standard_admin
+      authentication_required: true
+      purpose: 現場別・デバイス別の最新値一覧
+      auto_refresh: false
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+          - device_id
+      components:
+        - id: refresh_button
+          type: Button
+          label: 更新
+          action: reload_device_latest_table
+
+        - id: device_latest_table
+          type: Table
+          datasource: GET /devices/latest
+          row_click_action: navigate_device_graph
+          columns:
+            - company_name
+            - site_name
+            - device_name
+            - device_id
+            - latest_values
+            - latest_received_at
+            - communication_status
+            - alert_status
+
+    # -------------------------------------------------------------------------
+    # 06-05. DEVICE GRAPH SCREEN
+    # -------------------------------------------------------------------------
+
+    device_graph:
+      route: /devices/{device_id}/graph
+      layout: standard_admin
+      authentication_required: true
+      purpose: 選択デバイスのカラム別時系列グラフ表示
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+          - device_id
+      components:
+        - id: graph_filter_area
+          type: HStack
+          fields:
+            - id: period_preset
+              type: Select
+              label: 表示期間
+              default: 24h
+              options:
+                - { label: 1分, value: 1m }
+                - { label: 10分, value: 10m }
+                - { label: 1時間, value: 1h }
+                - { label: 12時間, value: 12h }
+                - { label: 24時間, value: 24h }
+                - { label: 3日, value: 3d }
+                - { label: 7日, value: 7d }
+                - { label: 2週間, value: 2w }
+                - { label: 1ヶ月, value: 1month }
+                - { label: 3ヶ月, value: 3months }
+                - { label: 6ヶ月, value: 6months }
+                - { label: 1年, value: 1year }
+                - { label: 期間指定, value: custom }
+
+            - id: start_datetime
+              type: Input
+              input_type: datetime-local
+              visible_when:
+                period_preset: custom
+
+            - id: end_datetime
+              type: Input
+              input_type: datetime-local
+              visible_when:
+                period_preset: custom
+
+        - id: graph_area
+          type: VStack
+          datasource: GET /devices/{device_id}/graph
+          chart:
+            library: Chart.js
+            wrapper: react-chartjs-2
+            chart_type: line
+            one_chart_per_column: true
+            y_axis_auto_scale: true
+            show_unit_on_y_axis: true
+            show_threshold_lines: true
+            show_threshold_exceeded_points: true
+            show_invalid_data: false
+
+    # -------------------------------------------------------------------------
+    # 06-06. COMPANY SETTINGS SCREEN
+    # -------------------------------------------------------------------------
+
+    company_settings:
+      route: /settings/companies
+      layout: table_with_modal_form
+      authentication_required: true
+      purpose: 企業マスタ管理
+      visible_roles:
+        - system_admin
+      editable_roles:
+        - system_admin
+      hidden_roles:
+        - company_admin
+        - site_admin
+        - general_user
+
+      components:
+        - id: company_table
+          type: Table
+          datasource: GET /companies
+          interaction:
+            double_click_row:
+              action: open_company_form_modal
+              mode: update
+          columns:
+            - company_name
+            - status
+            - created_at
+            - updated_at
+
+        - id: add_company_button
+          type: Button
+          label: 企業追加
+          action:
+            open_modal:
+              target: company_form_modal
+              mode: create
+
+        - id: company_form_modal
+          type: ModalForm
+          usage:
+            - create
+            - update
+          title_rule:
+            create: 企業追加
+            update: 企業変更
+          open_trigger:
+            create:
+              event: click_add_company_button
+              mode: create
+            update:
+              event: double_click_company_table_row
+              mode: update
+          fields:
+            - id: company_name
+              type: Input
+              label: 企業名
+              required: true
+
+            - id: status
+              type: Select
+              label: ステータス
+              required: true
+              options:
+                - active
+                - inactive
+
+          actions:
+            create:
+              api:
+                method: POST
+                endpoint: /companies
+
+            update:
+              api:
+                method: PUT
+                endpoint: /companies/{company_id}
+
+            disable:
+              api:
+                method: POST
+                endpoint: /companies/{company_id}/disable
+
+          validation:
+            company_name_required: true
+            company_name_unique: true
+
+    # -------------------------------------------------------------------------
+    # 06-07. SITE SETTINGS SCREEN
+    # -------------------------------------------------------------------------
+
+    site_settings:
+      route: /settings/sites
+      layout: table_with_modal_form
+      authentication_required: true
+      editable_roles:
+        - system_admin
+        - company_admin
+      hidden_roles:
+        - general_user
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+      components:
+        - id: site_table
+          type: Table
+          datasource: GET /sites
+          interaction:
+            double_click_row:
+              action: open_site_form_modal
+              mode: update
+          columns:
+            - company_name
+            - site_name
+            - address
+            - status
+
+        - id: add_site_button
+          type: Button
+          label: 現場追加
+          action:
+            open_modal:
+              target: site_form_modal
+              mode: create
+
+        - id: site_form_modal
+          type: ModalForm
+          usage:
+            - create
+            - update
+          title_rule:
+            create: 現場追加
+            update: 現場変更
+          fields:
+            - id: company_id
+              type: Select
+              label: 企業
+              required: true
+
+            - id: site_name
+              type: Input
+              label: 現場名
+              required: true
+
+            - id: address
+              type: Input
+              label: 住所
+              required: false
+
+    # -------------------------------------------------------------------------
+    # 06-08. USER SETTINGS SCREEN
+    # -------------------------------------------------------------------------
+
+    user_settings:
+      route: /settings/users
+      layout: table_with_modal_form
+      authentication_required: true
+      editable_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+      hidden_roles:
+        - general_user
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+      components:
+        - id: user_table
+          type: Table
+          datasource: GET /users
+          interaction:
+            double_click_row:
+              action: open_user_form_modal
+              mode: update
+          columns:
+            - login_id
+            - user_name
+            - role
+            - company_name
+            - site_name
+            - status
+            - created_at
+            - updated_at
+
+        - id: add_user_button
+          type: Button
+          label: ユーザー追加
+          action:
+            open_modal:
+              target: user_form_modal
+              mode: create
+
+        - id: user_form_modal
+          type: ModalForm
+          usage:
+            - create
+            - update
+          rule_ref:
+            - 01_overall_spec.user_management_rules.user_scope_rule
+            - 01_overall_spec.user_management_rules.user_form_role_selection_rule
+            - 01_overall_spec.user_management_rules.operation_user_limit
+            - 01_overall_spec.user_management_rules.password_policy
+          title_rule:
+            create: ユーザー追加
+            update: ユーザー変更
+          open_trigger:
+            create:
+              event: click_add_user_button
+              mode: create
+            update:
+              event: double_click_user_table_row
+              mode: update
+          fields:
+            - id: company_id
+              type: Select
+              label: 企業
+              required_rule: depends_on_selected_role
+
+            - id: site_id
+              type: Select
+              label: 現場
+              depends_on: company_id
+              required_rule: depends_on_selected_role
+
+            - id: role
+              type: Select
+              label: 権限
+              options_rule:
+                ref: 01_overall_spec.user_management_rules.user_form_role_selection_rule
+              required: true
+
+            - id: login_id
+              type: Input
+              label: ログインID
+              required: true
+              editable_rule:
+                create: true
+                update: false
+
+            - id: user_name
+              type: Input
+              label: ユーザー名
+              required: true
+
+            - id: password
+              type: Input
+              input_type: password
+              label: 初期パスワード
+              visible_rule:
+                mode: create
+              required_rule:
+                mode: create
+
+            - id: admin_reset_password_button
+              type: Button
+              label: パスワードリセット
+              visible_rule:
+                mode: update
+              action:
+                api:
+                  method: POST
+                  endpoint: /users/{user_id}/reset-password
+
+    # -------------------------------------------------------------------------
+    # 06-09. DEVICE SETTINGS SCREEN
+    # -------------------------------------------------------------------------
+
+    device_settings:
+      route: /settings/devices
+      layout: table_with_modal_form
+      authentication_required: true
+      editable_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+      hidden_roles:
+        - general_user
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+          - device_id
+      components:
+        - id: device_table
+          type: Table
+          datasource: GET /devices
+          interaction:
+            double_click_row:
+              action: open_device_form_modal
+              mode: update
+          columns:
+            - company_name
+            - site_name
+            - device_name
+            - device_id
+            - input_type
+            - status
+
+        - id: add_device_button
+          type: Button
+          label: デバイス追加
+          action:
+            open_modal:
+              target: device_form_modal
+              mode: create
+
+        - id: device_form_modal
+          type: ModalForm
+          usage:
+            - create
+            - update
+          rule_ref:
+            - 01_overall_spec.device_management_rules.device_form_modal
+            - 01_overall_spec.device_management_rules.auth_password_policy
+            - 01_overall_spec.device_management_rules.column_settings
+          title_rule:
+            create: デバイス追加
+            update: デバイス変更
+          open_trigger:
+            create:
+              event: click_add_device_button
+              mode: create
+            update:
+              event: double_click_device_table_row
+              mode: update
+          fields:
+            - id: company_id
+              type: Select
+              label: 企業
+              required: true
+
+            - id: site_id
+              type: Select
+              label: 現場
+              depends_on: company_id
+              required: true
+
+            - id: device_name
+              type: Input
+              label: デバイス名
+              required: true
+
+            - id: device_id
+              type: Input
+              label: デバイスID
+              required: true
+              validation: ascii_symbol_only_no_japanese
+              editable_rule:
+                create: true
+                update: false
+
+            - id: auth_id
+              type: Input
+              label: 認証ID
+              required: true
+
+            - id: auth_password
+              type: Input
+              input_type: password
+              label: 認証パスワード
+              required_rule:
+                create: true
+                update: false
+              update_method: overwrite_when_input_exists
+
+            - id: input_type
+              type: Select
+              label: データ入力タイプ
+              required: true
+              options:
+                - json
+                - csv
+
+            - id: csv_header_mode
+              type: Select
+              label: CSVヘッダ
+              visible_when:
+                input_type: csv
+              options:
+                - header_exists
+                - no_header
+
+            - id: column_settings_table
+              type: EditableTable
+              label: カラム設定
+              min_rows: 1
+              max_rows: 256
+              required: true
+              columns:
+                - id: column_name
+                  label: カラム名
+                  type: Input
+                  required: true
+                  validation: ascii_symbol_only_no_japanese
+
+                - id: display_name
+                  label: 表示名
+                  type: Input
+                  required: true
+
+                - id: data_type
+                  label: データ型
+                  type: Select
+                  required: true
+                  options:
+                    - number
+                    - string
+                    - boolean
+
+                - id: unit
+                  label: 単位
+                  type: Input
+                  required: false
+
+                - id: weight
+                  label: 重み設定
+                  type: NumberInput
+                  required: true
+                  default: 1.0
+
+                - id: display_order
+                  label: 表示順
+                  type: NumberInput
+                  required: true
+
+    # -------------------------------------------------------------------------
+    # 06-10. THRESHOLD SETTINGS SCREEN
+    # -------------------------------------------------------------------------
+
+    threshold_settings:
+      route: /settings/thresholds
+      layout: table_with_modal_form
+      authentication_required: true
+      editable_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+      hidden_roles:
+        - general_user
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+        column_name:
+          type: Select
+          label: カラム
+          depends_on: device_id
+          datasource: GET /devices/{device_id}/columns
+      components:
+        - id: threshold_table
+          type: Table
+          datasource: GET /thresholds
+          filter_by:
+            - company_id
+            - site_id
+            - device_id
+            - column_name
+          interaction:
+            double_click_row:
+              action: open_threshold_form_modal
+              mode: update
+          columns:
+            - company_name
+            - site_name
+            - device_name
+            - column_display_name
+            - threshold_name
+            - lower_limit
+            - upper_limit
+            - notification_emails
+            - suppress_minutes
+
+        - id: add_threshold_button
+          type: Button
+          label: 閾値追加
+          action:
+            open_modal:
+              target: threshold_form_modal
+              mode: create
+
+        - id: threshold_form_modal
+          type: ModalForm
+          usage:
+            - create
+            - update
+          fields:
+            - id: company_id
+              type: HiddenOrSelect
+              source: threshold_filter.company_id
+
+            - id: site_id
+              type: HiddenOrSelect
+              source: threshold_filter.site_id
+
+            - id: device_id
+              type: HiddenOrSelect
+              source: threshold_filter.device_id
+
+            - id: column_name
+              type: HiddenOrSelect
+              source: threshold_filter.column_name
+
+            - id: threshold_name
+              type: Input
+              label: 閾値名
+              required: true
+
+            - id: lower_limit
+              type: NumberInput
+              label: 下限値
+              required: false
+
+            - id: upper_limit
+              type: NumberInput
+              label: 上限値
+              required: false
+
+            - id: notification_emails
+              type: Textarea
+              label: 通知先メールアドレス
+              format: comma_separated_emails
+              required: true
+
+            - id: suppress_minutes
+              type: NumberInput
+              label: 再通知抑止時間（分）
+              required: true
+
+    # -------------------------------------------------------------------------
+    # 06-11. AUDIT LOGS SCREEN
+    # -------------------------------------------------------------------------
+
+    audit_logs:
+      route: /settings/audit-logs
+      layout: standard_admin
+      authentication_required: true
+      hidden_roles:
+        - general_user
+      filter:
+        use_common_filter: true
+        fields:
+          - company_id
+          - site_id
+      components:
+        - id: audit_log_table
+          type: Table
+          datasource: GET /audit-logs
+          columns:
+            - changed_at
+            - changed_by
+            - company_name
+            - site_name
+            - action
+            - target_type
+            - target_id
+            - before_value
+            - after_value

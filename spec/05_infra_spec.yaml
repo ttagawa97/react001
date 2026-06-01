@@ -1,0 +1,233 @@
+# =============================================================================
+# IoT Platform Infrastructure Specification
+# =============================================================================
+#
+# File Name:
+#   05_infra_spec.yaml
+#
+# Spec Version:
+#   1.8.0
+#
+# Last Updated:
+#   2026-06-01
+#
+# Authoring Agent:
+#   OpenAI GPT-5.5
+#
+# Purpose:
+#   IoTプラットフォームのインフラ、Docker、TimescaleDB、Redis、
+#   Celery、メール送信方式を定義する。
+#
+# =============================================================================
+
+infra_spec:
+
+  # ===========================================================================
+  # 01. METADATA
+  # ===========================================================================
+
+  metadata:
+    system_name: iot_platform
+    spec_version: 1.8.0
+    document_type: infrastructure_specification
+
+  # ===========================================================================
+  # 02. TECHNOLOGY STACK
+  # ===========================================================================
+
+  technology_stack:
+    frontend:
+      framework: React
+      language: TypeScript
+      build_tool: Vite
+      ui_library: Chakra UI
+      chart_library: Chart.js
+      chart_wrapper: react-chartjs-2
+      router: React Router
+      api_client: axios
+
+    backend:
+      framework: Django
+      api_framework: Django REST Framework
+      language: Python
+
+    database:
+      engine: TimescaleDB
+      base: PostgreSQL
+      docker_image: timescale/timescaledb:latest-pg17
+
+    background_processing:
+      framework: Celery
+      broker: Redis
+      mandatory: true
+
+    infrastructure:
+      container: Docker
+      orchestration: Docker Compose
+
+  # ===========================================================================
+  # 03. BACKGROUND PROCESSING
+  # ===========================================================================
+
+  background_processing:
+    framework: Celery
+    broker: Redis
+    required: true
+
+    jobs:
+      - parse_received_data
+      - threshold_check
+      - threshold_notification
+      - device_disconnect_monitor
+      - device_disconnect_notification
+      - password_reset_mail
+      - timescaledb_downsampling_monitor
+
+  # ===========================================================================
+  # 04. EMAIL
+  # ===========================================================================
+
+  email:
+    production:
+      provider: AWS SES
+      required: true
+      usage:
+        - threshold_notification
+        - device_disconnect_notification
+        - password_reset
+
+    development:
+      provider: pending
+      required: true
+      status: pending
+      note: 開発環境では外部メールサーバーを使用するが、具体的なサーバーは未決。
+
+  # ===========================================================================
+  # 05. DOCKER COMPOSE
+  # ===========================================================================
+
+  docker_compose:
+    file_name: docker-compose.yml
+
+    services:
+      frontend:
+        build: ./frontend
+        ports:
+          - "5173:5173"
+        depends_on:
+          - backend
+
+      backend:
+        build: ./backend
+        ports:
+          - "8000:8000"
+        environment:
+          DB_HOST: timescaledb
+          DB_PORT: 5432
+          DB_NAME: iot_platform
+          DB_USER: iot_user
+          DB_PASSWORD: iot_password
+          REDIS_HOST: redis
+          REDIS_PORT: 6379
+          CELERY_BROKER_URL: redis://redis:6379/0
+          CELERY_RESULT_BACKEND: redis://redis:6379/1
+          EMAIL_PROVIDER: development_smtp
+          AWS_SES_ENABLED: false
+          TZ: Asia/Tokyo
+        depends_on:
+          - timescaledb
+          - redis
+
+      celery_worker:
+        build: ./backend
+        command: celery -A config worker -l info
+        environment:
+          DB_HOST: timescaledb
+          DB_PORT: 5432
+          DB_NAME: iot_platform
+          DB_USER: iot_user
+          DB_PASSWORD: iot_password
+          CELERY_BROKER_URL: redis://redis:6379/0
+          CELERY_RESULT_BACKEND: redis://redis:6379/1
+          TZ: Asia/Tokyo
+        depends_on:
+          - backend
+          - redis
+          - timescaledb
+
+      celery_beat:
+        build: ./backend
+        command: celery -A config beat -l info
+        environment:
+          DB_HOST: timescaledb
+          DB_PORT: 5432
+          DB_NAME: iot_platform
+          DB_USER: iot_user
+          DB_PASSWORD: iot_password
+          CELERY_BROKER_URL: redis://redis:6379/0
+          CELERY_RESULT_BACKEND: redis://redis:6379/1
+          TZ: Asia/Tokyo
+        depends_on:
+          - backend
+          - redis
+          - timescaledb
+
+      redis:
+        image: redis:7
+        ports:
+          - "6379:6379"
+
+      timescaledb:
+        image: timescale/timescaledb:latest-pg17
+        container_name: iot-timescaledb
+        ports:
+          - "5432:5432"
+        environment:
+          POSTGRES_DB: iot_platform
+          POSTGRES_USER: iot_user
+          POSTGRES_PASSWORD: iot_password
+          TZ: Asia/Tokyo
+        volumes:
+          - timescaledb_data:/var/lib/postgresql/data
+          - ./infra/initdb:/docker-entrypoint-initdb.d
+        healthcheck:
+          test: pg_isready -U iot_user -d iot_platform
+          interval: 10s
+          timeout: 5s
+          retries: 5
+
+    volumes:
+      - timescaledb_data
+
+  # ===========================================================================
+  # 06. DIRECTORY STRUCTURE
+  # ===========================================================================
+
+  directory_structure:
+    root: .
+    frontend: ./frontend
+    backend: ./backend
+    infra: ./infra
+    initdb: ./infra/initdb
+    docs: ./docs
+
+  # ===========================================================================
+  # 07. STARTUP COMMANDS
+  # ===========================================================================
+
+  startup_commands:
+    docker_compose_up: docker compose up -d
+    docker_compose_down: docker compose down
+    timescaledb_psql: docker exec -it iot-timescaledb psql -U iot_user -d iot_platform
+
+  # ===========================================================================
+  # 08. PENDING ITEMS
+  # ===========================================================================
+
+  pending_items:
+    - development_mail_server
+    - aws_ses_region
+    - aws_ses_verified_sender
+    - production_env_secret_management
+    - backup_policy
+    - disaster_recovery_policy

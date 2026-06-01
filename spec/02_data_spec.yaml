@@ -1,0 +1,527 @@
+# =============================================================================
+# IoT Platform Data Specification
+# =============================================================================
+#
+# File Name:
+#   02_data_spec.yaml
+#
+# Purpose:
+#   IoTプラットフォームのデータ受信仕様、データモデル、
+#   TimescaleDB、ダウンサンプリング、検証ルールを定義する。
+#
+# Spec Version:
+#   1.8.0
+#
+# Last Updated:
+#   2026-06-01
+#
+# Authoring Agent:
+#   OpenAI GPT-5.5
+#
+# =============================================================================
+
+data_spec:
+
+  # ===========================================================================
+  # 01. METADATA
+  # ===========================================================================
+
+  metadata:
+    system_name: iot_platform
+    spec_version: 1.8.0
+    document_type: data_specification
+    depends_on:
+      - 01_overall_spec.yaml
+      - 03_ui_spec.yaml
+      - 05_infra_spec.yaml
+
+  # ===========================================================================
+  # 02. DATA RECEIVE RULES
+  # ===========================================================================
+
+  data_receive_rules:
+    endpoint: /api/v1/data
+    method: POST
+    protocol: HTTPS
+    auth: basic_auth
+    common_api: true
+
+    request_format:
+      - application/json
+      - text/csv
+
+    frequency:
+      minimum_interval_seconds: 1
+      actual_interval: device_dependent
+
+    authentication:
+      type: basic_auth
+      credential_scope: per_device
+      auth_id: required
+      auth_password: required
+      device_id_independent_from_auth_id: true
+
+    timestamps:
+      device_timestamp:
+        required: true
+        source: payload
+      server_timestamp:
+        required: true
+        source: server_time
+
+    json_format:
+      type: fixed_key_object
+      required_keys:
+        - device_id
+        - timestamp
+        - values
+      example:
+        device_id: DEVICE001
+        timestamp: "2026-05-14T10:00:00+09:00"
+        values:
+          temp: 25.1
+          humidity: 60
+
+    csv_format:
+      header: configurable
+      csv_header_mode:
+        - header_exists
+        - no_header
+      mapping: device_setting_defined
+      note: CSVの項目順・カラム対応はデバイス設定のカラム定義に従う
+
+    processing_flow:
+      - authenticate_device
+      - identify_device
+      - resolve_company_and_site_from_device
+      - store_raw_data_immediately
+      - enqueue_parse_job
+      - parse_data
+      - validate_data
+      - store_parsed_data
+      - apply_column_weight
+      - threshold_check_by_device_column
+      - update_latest_value
+      - update_device_status
+
+    invalid_data_policy:
+      accept: true
+      store_raw: true
+      mark_as_error: true
+      exclude_from_threshold_check: true
+      description: 不正データ・異常データも破棄せず、記録を最優先する
+
+  # ===========================================================================
+  # 03. DEVICE DATA COLUMN RULES
+  # ===========================================================================
+
+  device_column_rules:
+    min_columns_per_device: 1
+    max_columns_per_device: 256
+    required: true
+
+    fields:
+      - column_name
+      - display_name
+      - data_type
+      - unit
+      - weight
+      - display_order
+
+    data_type_allowed:
+      - number
+      - string
+      - boolean
+
+    validation:
+      column_name_required: true
+      column_name_unique_per_device: true
+      column_name_japanese_allowed: false
+      display_name_required: true
+      data_type_required: true
+      weight_required: true
+
+    weight_rule:
+      enabled: true
+      default: 1.0
+      formula: display_value = raw_value * weight
+      applies_to:
+        - latest_values
+        - graph_data
+        - threshold_check_for_numeric_data
+
+  # ===========================================================================
+  # 04. DATA MODEL
+  # ===========================================================================
+
+  data_model:
+    tables:
+
+      companies:
+        purpose: 企業マスタ
+        fields:
+          - id
+          - name
+          - status
+          - created_at
+          - updated_at
+
+      sites:
+        purpose: 現場マスタ
+        relationship: company_has_many_sites
+        fields:
+          - id
+          - company_id
+          - site_name
+          - address
+          - status
+          - created_at
+          - updated_at
+
+      users:
+        purpose: ユーザー管理
+        fields:
+          - id
+          - company_id
+          - site_id
+          - role
+          - login_id
+          - user_name
+          - password_hash
+          - status
+          - created_at
+          - updated_at
+
+      devices:
+        purpose: デバイス管理
+        relationship: site_has_many_devices
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - device_name
+          - auth_id
+          - auth_password_hash
+          - input_type
+          - csv_header_mode
+          - status
+          - created_at
+          - updated_at
+
+      device_columns:
+        purpose: デバイスから受け取るカラム定義
+        relationship: device_has_many_columns
+        fields:
+          - id
+          - device_id
+          - column_name
+          - display_name
+          - data_type
+          - unit
+          - weight
+          - display_order
+          - created_at
+          - updated_at
+
+      raw_data:
+        purpose: 受信した元データを即時保存する
+        table_type: normal_table
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - received_at
+          - payload
+          - is_error
+          - error_message
+
+      parsed_data:
+        purpose: 正規化済み時系列データ
+        table_type: hypertable
+        time_column: device_timestamp
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - device_timestamp
+          - server_timestamp
+          - column_name
+          - raw_value_number
+          - display_value_number
+          - value_string
+          - value_boolean
+          - is_valid
+          - error_message
+
+      parsed_data_1min:
+        purpose: 1分平均データ
+        table_type: continuous_aggregate
+        source: parsed_data
+        interval: 1 minute
+        aggregation:
+          numeric: avg
+          non_numeric: exclude
+        grouping:
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+
+      parsed_data_1hour:
+        purpose: 1時間平均データ
+        table_type: continuous_aggregate
+        source: parsed_data_1min
+        interval: 1 hour
+        aggregation:
+          numeric: avg
+          non_numeric: exclude
+        grouping:
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+
+      latest_values:
+        purpose: デバイス一覧表示用の最新値
+        fields:
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+          - raw_value
+          - display_value
+          - device_timestamp
+          - server_timestamp
+          - threshold_status
+
+      thresholds:
+        purpose: 閾値設定
+        relationship: device_column_has_many_thresholds
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+          - threshold_name
+          - upper_limit
+          - lower_limit
+          - notify_emails
+          - suppress_minutes
+          - last_notified_at
+          - current_status
+
+      threshold_events:
+        purpose: 閾値超過履歴
+        fields:
+          - id
+          - company_id
+          - site_id
+          - device_id
+          - column_name
+          - threshold_id
+          - occurred_at
+          - value
+          - threshold_name
+          - status
+
+      device_status:
+        purpose: 通信状態管理
+        fields:
+          - company_id
+          - site_id
+          - device_id
+          - last_received_at
+          - estimated_interval_seconds
+          - status
+
+      audit_logs:
+        purpose: 設定変更履歴
+        fields:
+          - id
+          - user_id
+          - company_id
+          - site_id
+          - action
+          - target_type
+          - target_id
+          - before_value
+          - after_value
+          - created_at
+
+  # ===========================================================================
+  # 05. TIMESCALEDB STRATEGY
+  # ===========================================================================
+
+  timescaledb_strategy:
+    enabled: true
+    engine: TimescaleDB
+
+    hypertables:
+      parsed_data:
+        time_column: device_timestamp
+        partition_key: device_id
+        indexes:
+          - company_id + site_id + device_id + device_timestamp
+          - device_id + column_name + device_timestamp
+
+    continuous_aggregates:
+      parsed_data_1min:
+        source: parsed_data
+        interval: 1 minute
+        aggregation: avg
+        target: numeric_data_only
+
+      parsed_data_1hour:
+        source: parsed_data_1min
+        interval: 1 hour
+        aggregation: avg
+        target: numeric_data_only
+
+    downsampling:
+      enabled: true
+      method: continuous_aggregate
+      execution: scheduled_automatic
+
+      flow:
+        - from: parsed_data
+          to: parsed_data_1min
+          interval: 1 minute
+          method: avg
+
+        - from: parsed_data_1min
+          to: parsed_data_1hour
+          interval: 1 hour
+          method: avg
+
+      delete_source_data:
+        enabled: true
+        rule: ダウンサンプリング完了後に元データを削除する
+        targets:
+          - parsed_data
+          - parsed_data_1min
+        safety_condition:
+          - downsample_completed
+          - target_data_exists
+        exact_delete_timing: pending
+
+    retention:
+      parsed_data:
+        retention_period: pending
+        delete_after_downsampling: true
+
+      parsed_data_1min:
+        retention_period: pending
+        delete_after_1hour_downsampling: true
+
+      parsed_data_1hour:
+        retention_period: long_term
+
+  # ===========================================================================
+  # 06. GRAPH DATA SELECTION
+  # ===========================================================================
+
+  graph_data_selection:
+    rule: 表示期間に応じて参照テーブルを切り替える
+
+    mapping:
+      short_range:
+        source: parsed_data
+
+      middle_range:
+        source: parsed_data_1min
+
+      long_range:
+        source: parsed_data_1hour
+
+    exact_range_mapping: pending
+
+  # ===========================================================================
+  # 07. THRESHOLD DATA RULES
+  # ===========================================================================
+
+  threshold_data_rules:
+    target: device_column
+    multiple_thresholds_per_device: true
+    multiple_thresholds_per_column: true
+
+    evaluation:
+      only_valid_data: true
+      numeric_data_only: true
+      use_display_value: true
+      upper_limit_check: true
+      lower_limit_check: true
+
+    notification_control:
+      suppress_repeat_within_minutes: true
+      require_return_to_normal_before_realert: true
+
+    event_record:
+      save_threshold_event: true
+      fields:
+        - device_id
+        - column_name
+        - threshold_id
+        - occurred_at
+        - value
+        - threshold_name
+        - status
+
+  # ===========================================================================
+  # 08. DEVICE STATUS DATA RULES
+  # ===========================================================================
+
+  device_status_data_rules:
+    enabled: true
+
+    calculation:
+      use_last_receive_count: 10
+      estimated_interval: average
+      disconnected_when_missing_count: 2
+
+    update_target:
+      table: device_status
+
+    notification:
+      enabled: true
+      method: email
+
+  # ===========================================================================
+  # 09. DATA VALIDATION RULES
+  # ===========================================================================
+
+  data_validation_rules:
+    invalid_data:
+      accept: true
+      store_raw: true
+      parsed_record_is_valid: false
+      exclude_from_threshold_check: true
+
+    parse_error:
+      save_raw_data: true
+      save_error_message: true
+      do_not_discard: true
+
+    missing_column:
+      save_raw_data: true
+      mark_as_error: true
+
+    type_mismatch:
+      save_raw_data: true
+      mark_as_error: true
+
+    non_numeric_data:
+      downsampling: exclude
+      threshold_check: exclude
+
+  # ===========================================================================
+  # 10. REFERENCES
+  # ===========================================================================
+
+  references:
+    overall_rules: 01_overall_spec.yaml
+    ui_usage: 03_ui_spec.yaml
+    infrastructure: 05_infra_spec.yaml

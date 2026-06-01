@@ -1,0 +1,6 @@
+spec_files:
+  - 01_overall_spec.yaml
+  - 02_data_spec.yaml
+  - 03_ui_spec.yaml
+  - 04_api_spec.yaml
+  - 05_infra_spec.yaml
