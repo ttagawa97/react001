@@ -261,6 +261,50 @@ button:hover {
   padding: 4px 6px;
 }
 
+.form-error,
+.form-success {
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.form-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.form-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.api-error-banner,
+.loading-strip {
+  margin: 16px 28px 0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+.api-error-banner {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.loading-strip {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -332,7 +376,8 @@ button:hover {
 }
 
 .modal-form select,
-.modal-form input {
+.modal-form input,
+.modal-form textarea {
   height: 40px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -341,6 +386,12 @@ button:hover {
   font: inherit;
   font-size: 14px;
   padding: 0 10px;
+}
+
+.modal-form textarea {
+  min-height: 84px;
+  padding: 10px;
+  resize: vertical;
 }
 
 .modal-form input:disabled {
@@ -401,6 +452,10 @@ button:hover {
   color: #166534;
   font-size: 13px;
   font-weight: 700;
+}
+
+.danger-area span {
+  color: #991b1b;
 }
 
 .editable-table-block {
@@ -481,6 +536,10 @@ button:hover {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
+}
+
+.company-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .metric-card,
@@ -706,6 +765,26 @@ tbody tr:last-child td {
 .status.offline {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-width: 54px;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-pill.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill.inactive {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .settings-grid {
@@ -935,6 +1014,7 @@ tbody tr:last-child td {
   }
 
   .metric-grid,
+  .company-metrics,
   .content-grid,
   .settings-grid,
   .graph-summary,
