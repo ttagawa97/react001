@@ -57,7 +57,7 @@ function SiteAddModal({ role, filter, onDataChanged, onError, onClose }) {
     const formData = new FormData(event.currentTarget)
     try {
       await api.createSite({
-        company_id: companyId,
+        company: companyId,
         site_name: formData.get('site_name'),
         address: formData.get('address'),
       })

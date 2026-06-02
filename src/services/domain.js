@@ -18,6 +18,11 @@ export function replaceCollection(target, source) {
   target.splice(0, target.length, ...source)
 }
 
+export function normalizeId(value) {
+  if (value === undefined || value === null || value === '') return value
+  return String(value)
+}
+
 export function toStatus(value) {
   if (value === 'active' || value === '有効') return 'active'
   if (value === 'inactive' || value === '無効' || value === '一時停止') return 'inactive'
@@ -26,19 +31,19 @@ export function toStatus(value) {
 
 export function normalizeCompany(company) {
   return {
-    id: company.id ?? company.company_id,
+    id: normalizeId(company.id ?? company.company_id),
     name: company.name ?? company.company_name,
     status: toStatus(company.status),
     createdAt: company.createdAt ?? company.created_at ?? '-',
     updatedAt: company.updatedAt ?? company.updated_at ?? '-',
-    sites: company.sites ?? [],
+    sites: (company.sites ?? []).map(normalizeId),
   }
 }
 
 export function normalizeSite(site) {
   return {
-    id: site.id ?? site.site_id,
-    companyId: site.companyId ?? site.company_id,
+    id: normalizeId(site.id ?? site.site_id),
+    companyId: normalizeId(site.companyId ?? site.company_id ?? site.company),
     name: site.name ?? site.site_name,
     address: site.address ?? '',
     status: site.status === 'inactive' ? '無効' : site.status ?? '有効',
@@ -58,31 +63,73 @@ export function normalizeColumn(column) {
   }
 }
 
+function normalizeAlertStatus(value) {
+  if (value === 'normal') return '正常'
+  return value ?? '正常'
+}
+
+function findCompanyIdByName(companyName) {
+  return companies.find((company) => company.name === companyName)?.id
+}
+
+function findSiteIdByName(siteName, companyId) {
+  return sites.find((site) => (
+    site.name === siteName &&
+    (!companyId || site.companyId === companyId)
+  ))?.id
+}
+
 export function normalizeDevice(device) {
   const columns = asArray(device.columns ?? device.device_columns).map(normalizeColumn)
+  const apiId = normalizeId(device.apiId ?? device.id)
+  const companyId = normalizeId(device.companyId ?? device.company_id ?? device.company) ?? findCompanyIdByName(device.company_name)
+  const siteId = normalizeId(device.siteId ?? device.site_id ?? device.site) ?? findSiteIdByName(device.site_name, companyId)
+
   return {
-    id: device.id ?? device.device_id,
+    id: normalizeId(device.deviceId ?? device.device_id ?? device.id),
+    apiId,
     name: device.name ?? device.device_name,
-    companyId: device.companyId ?? device.company_id,
-    siteId: device.siteId ?? device.site_id,
+    companyId,
+    siteId,
     status: device.status ?? device.communication_status ?? 'offline',
     authId: device.authId ?? device.auth_id ?? '',
     inputType: device.inputType ?? device.input_type ?? 'json',
     csvHeaderMode: device.csvHeaderMode ?? device.csv_header_mode ?? '-',
     latestReceivedAt: device.latestReceivedAt ?? device.latest_received_at ?? '-',
-    alert: device.alert ?? device.alert_status ?? '正常',
+    alert: normalizeAlertStatus(device.alert ?? device.alert_status),
     columns,
   }
 }
 
+function findDeviceIdByApiId(deviceApiId) {
+  const normalizedDeviceApiId = normalizeId(deviceApiId)
+  return devices.find((device) => device.apiId === normalizedDeviceApiId)?.id
+}
+
+function mergeLatestDeviceData(sourceDevices, latestDevices) {
+  const latestById = new Map(latestDevices.map((device) => [device.id, device]))
+
+  return sourceDevices.map((device) => {
+    const latest = latestById.get(device.id)
+    if (!latest) return device
+
+    return {
+      ...device,
+      status: latest.status,
+      latestReceivedAt: latest.latestReceivedAt,
+      alert: latest.alert,
+    }
+  })
+}
+
 export function normalizeUser(user) {
   return {
-    id: user.id ?? user.user_id,
+    id: normalizeId(user.id ?? user.user_id),
     loginId: user.loginId ?? user.login_id,
     userName: user.userName ?? user.user_name,
     roleId: user.roleId ?? user.role,
-    companyId: user.companyId ?? user.company_id ?? null,
-    siteId: user.siteId ?? user.site_id ?? null,
+    companyId: normalizeId(user.companyId ?? user.company_id ?? user.company) ?? null,
+    siteId: normalizeId(user.siteId ?? user.site_id ?? user.site) ?? null,
     scope: user.scope ?? '',
     status: user.status === 'inactive' ? '一時停止' : user.status ?? '有効',
   }
@@ -92,19 +139,22 @@ export function normalizeAuditLog(log) {
   return {
     at: log.at ?? log.created_at ?? log.occurred_at,
     user: log.user ?? log.login_id ?? log.user_name,
-    companyId: log.companyId ?? log.company_id,
-    siteId: log.siteId ?? log.site_id,
+    companyId: normalizeId(log.companyId ?? log.company_id ?? log.company),
+    siteId: normalizeId(log.siteId ?? log.site_id ?? log.site),
     action: log.action,
     target: log.target,
   }
 }
 
 export function normalizeThreshold(threshold) {
+  const deviceApiId = normalizeId(threshold.deviceApiId ?? threshold.device)
+
   return {
-    id: threshold.id ?? threshold.threshold_id,
-    companyId: threshold.companyId ?? threshold.company_id,
-    siteId: threshold.siteId ?? threshold.site_id,
-    deviceId: threshold.deviceId ?? threshold.device_id,
+    id: normalizeId(threshold.id ?? threshold.threshold_id),
+    companyId: normalizeId(threshold.companyId ?? threshold.company_id ?? threshold.company),
+    siteId: normalizeId(threshold.siteId ?? threshold.site_id ?? threshold.site),
+    deviceId: normalizeId(threshold.deviceId ?? threshold.device_id) ?? findDeviceIdByApiId(deviceApiId) ?? deviceApiId,
+    deviceApiId,
     columnKey: threshold.columnKey ?? threshold.column_name,
     name: threshold.name ?? threshold.threshold_name,
     lower: threshold.lower ?? threshold.lower_limit,
@@ -115,10 +165,11 @@ export function normalizeThreshold(threshold) {
 }
 
 export async function loadInitialData() {
-  const [companyData, siteData, deviceData, userData, thresholdData, auditLogData] = await Promise.all([
+  const [companyData, siteData, deviceData, latestDeviceData, userData, thresholdData, auditLogData] = await Promise.all([
     api.listCompanies(),
     api.listSites(),
     api.listDevices(),
+    api.listLatestDevices(),
     api.listUsers(),
     api.listThresholds(),
     api.listAuditLogs(),
@@ -126,7 +177,11 @@ export async function loadInitialData() {
 
   replaceCollection(companies, asArray(companyData).map(normalizeCompany))
   replaceCollection(sites, asArray(siteData).map(normalizeSite))
-  replaceCollection(devices, asArray(deviceData).map(normalizeDevice))
+
+  const normalizedDevices = asArray(deviceData).map(normalizeDevice)
+  const normalizedLatestDevices = asArray(latestDeviceData).map(normalizeDevice)
+
+  replaceCollection(devices, mergeLatestDeviceData(normalizedDevices, normalizedLatestDevices))
   replaceCollection(users, asArray(userData).map(normalizeUser))
   replaceCollection(thresholds, asArray(thresholdData).map(normalizeThreshold))
   replaceCollection(auditLogs, asArray(auditLogData).map(normalizeAuditLog))
@@ -138,15 +193,18 @@ export function formatApiError(error) {
 }
 
 export function getCompany(companyId) {
-  return companies.find((company) => company.id === companyId)
+  const normalizedCompanyId = normalizeId(companyId)
+  return companies.find((company) => company.id === normalizedCompanyId)
 }
 
 export function getSite(siteId) {
-  return sites.find((site) => site.id === siteId)
+  const normalizedSiteId = normalizeId(siteId)
+  return sites.find((site) => site.id === normalizedSiteId)
 }
 
 export function getDevice(deviceId) {
-  return devices.find((device) => device.id === deviceId)
+  const normalizedDeviceId = normalizeId(deviceId)
+  return devices.find((device) => device.id === normalizedDeviceId)
 }
 
 export function getScopeDefaults(role) {
@@ -166,8 +224,8 @@ export function normalizeFilter(role, nextFilter) {
 
   if (deviceId !== 'all') {
     const device = getDevice(deviceId)
-    const invalidCompany = companyId !== 'all' && device?.companyId !== companyId
-    const invalidSite = siteId !== 'all' && device?.siteId !== siteId
+    const invalidCompany = companyId !== 'all' && device?.companyId !== normalizeId(companyId)
+    const invalidSite = siteId !== 'all' && device?.siteId !== normalizeId(siteId)
     if (!device || invalidCompany || invalidSite) deviceId = 'all'
   }
 
@@ -175,14 +233,17 @@ export function normalizeFilter(role, nextFilter) {
 }
 
 export function matchesFilter(item, filter) {
-  const itemCompanyId = item.companyId
-  const itemSiteId = item.siteId
-  const itemDeviceId = item.deviceId ?? item.id
+  const itemCompanyId = normalizeId(item.companyId)
+  const itemSiteId = normalizeId(item.siteId)
+  const itemDeviceId = normalizeId(item.deviceId ?? item.id)
+  const filterCompanyId = normalizeId(filter.companyId)
+  const filterSiteId = normalizeId(filter.siteId)
+  const filterDeviceId = normalizeId(filter.deviceId)
 
   return (
-    (filter.companyId === 'all' || itemCompanyId === filter.companyId) &&
-    (filter.siteId === 'all' || itemSiteId === filter.siteId) &&
-    (filter.deviceId === 'all' || itemDeviceId === filter.deviceId)
+    (filter.companyId === 'all' || itemCompanyId === filterCompanyId) &&
+    (filter.siteId === 'all' || itemSiteId === filterSiteId) &&
+    (filter.deviceId === 'all' || itemDeviceId === filterDeviceId)
   )
 }
 
@@ -193,12 +254,16 @@ export function getDisplayValue(column, rawValue) {
 }
 
 export function getLatestValues(device) {
-  return device.columns
+  const latestValues = device.columns
     .map((column) => {
       const latest = getDisplayValue(column, column.values.at(-1))
+      if (latest === undefined || latest === null) return null
       return `${column.label} ${latest}${column.unit ? ` ${column.unit}` : ''}`
     })
+    .filter(Boolean)
     .join(' / ')
+
+  return latestValues || '-'
 }
 
 export function getRawValues(column) {

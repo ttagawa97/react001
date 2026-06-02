@@ -55,6 +55,19 @@ api_spec:
       required_for_client_api: true
       rule: ログインユーザーの権限範囲で必ず参照・更新対象を制限する
 
+    request_key_policy:
+      foreign_key_body_fields:
+        rule: 管理APIのrequest bodyで外部キーを送信する場合は、Django REST Framework serializerの入力名に合わせる
+        site_company_field: company
+        user_company_field: company
+        user_site_field: site
+        device_company_field: company
+        device_site_field: site
+        threshold_company_field: company
+        threshold_site_field: site
+        threshold_device_field: device
+        note: company_id / site_id はDB項目名、URL path parameter、query parameterで使う。request bodyの外部キー入力名には使わない。
+
   # ===========================================================================
   # 03. AUTH API
   # ===========================================================================
@@ -148,6 +161,18 @@ api_spec:
         - company_admin
         - site_admin
         - general_user
+      query:
+        company_id: optional_integer
+        site_id: optional_integer
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site_name: string
+        address: string
+        status: active_or_inactive
+        created_at: datetime
+        updated_at: datetime
 
     - id: create_site
       method: POST
@@ -155,6 +180,19 @@ api_spec:
       allowed_roles:
         - system_admin
         - company_admin
+      request:
+        company: integer
+        site_name: string
+        address: optional_string
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site_name: string
+        address: string
+        status: active_or_inactive
+        created_at: datetime
+        updated_at: datetime
 
     - id: update_site
       method: PUT
@@ -162,6 +200,22 @@ api_spec:
       allowed_roles:
         - system_admin
         - company_admin
+      path_params:
+        site_id: integer
+      request:
+        company: integer
+        site_name: string
+        address: optional_string
+        status: optional_active_or_inactive
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site_name: string
+        address: string
+        status: active_or_inactive
+        created_at: datetime
+        updated_at: datetime
 
     - id: disable_site
       method: POST
@@ -169,6 +223,8 @@ api_spec:
       allowed_roles:
         - system_admin
         - company_admin
+      path_params:
+        site_id: integer
 
   # ===========================================================================
   # 07. USER API
@@ -182,6 +238,19 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      query:
+        company_id: optional_integer
+        site_id: optional_integer
+      response:
+        id: integer
+        company: nullable_integer
+        site: nullable_integer
+        role: system_admin_or_company_admin_or_site_admin_or_general_user
+        login_id: string
+        user_name: string
+        status: active_or_inactive
+        created_at: datetime
+        updated_at: datetime
 
     - id: create_user
       method: POST
@@ -190,6 +259,24 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      request:
+        company: nullable_integer
+        site: nullable_integer
+        role: system_admin_or_company_admin_or_site_admin_or_general_user
+        login_id: string
+        user_name: string
+        password: string
+        status: active_or_inactive
+      response:
+        id: integer
+        company: nullable_integer
+        site: nullable_integer
+        role: system_admin_or_company_admin_or_site_admin_or_general_user
+        login_id: string
+        user_name: string
+        status: active_or_inactive
+        created_at: datetime
+        updated_at: datetime
 
     - id: update_user
       method: PUT
@@ -198,6 +285,27 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      path_params:
+        user_id: integer
+      request:
+        company: nullable_integer
+        site: nullable_integer
+        role: system_admin_or_company_admin_or_site_admin_or_general_user
+        user_name: string
+        password: optional_string
+        status: active_or_inactive
+      immutable_fields:
+        - login_id
+      response:
+        id: integer
+        company: nullable_integer
+        site: nullable_integer
+        role: system_admin_or_company_admin_or_site_admin_or_general_user
+        login_id: string
+        user_name: string
+        status: active_or_inactive
+        created_at: datetime
+        updated_at: datetime
 
     - id: reset_user_password
       method: POST
@@ -206,6 +314,8 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      path_params:
+        user_id: integer
 
   # ===========================================================================
   # 08. DEVICE API
@@ -220,6 +330,32 @@ api_spec:
         - company_admin
         - site_admin
         - general_user
+      query:
+        company_id: optional_integer
+        site_id: optional_integer
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site: integer
+        site_name: string
+        device_id: string
+        device_name: string
+        auth_id: string
+        input_type: json_or_csv
+        csv_header_mode: header_exists_or_no_header
+        status: active_or_inactive
+        columns:
+          - id: integer
+            device: integer
+            column_name: string
+            display_name: string
+            data_type: number_or_string_or_boolean
+            unit: string
+            weight: decimal_string
+            display_order: integer
+        created_at: datetime
+        updated_at: datetime
 
     - id: list_latest_devices
       method: GET
@@ -229,6 +365,21 @@ api_spec:
         - company_admin
         - site_admin
         - general_user
+      purpose: 最新値一覧表示用の軽量レスポンス。デバイスのカラム定義は含めない。
+      usage_note: デバイス設定・閾値設定などカラム定義が必要な画面は GET /devices を使用する。
+      query:
+        company_id: optional_integer
+        site_id: optional_integer
+      response:
+        id: integer
+        company_name: string
+        site_name: string
+        device_id: string
+        device_name: string
+        latest_values: array
+        latest_received_at: nullable_datetime
+        communication_status: online_or_warning_or_offline_or_unknown
+        alert_status: normal_or_alert
 
     - id: get_device
       method: GET
@@ -238,6 +389,31 @@ api_spec:
         - company_admin
         - site_admin
         - general_user
+      path_params:
+        device_id: string
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site: integer
+        site_name: string
+        device_id: string
+        device_name: string
+        auth_id: string
+        input_type: json_or_csv
+        csv_header_mode: header_exists_or_no_header
+        status: active_or_inactive
+        columns:
+          - id: integer
+            device: integer
+            column_name: string
+            display_name: string
+            data_type: number_or_string_or_boolean
+            unit: string
+            weight: decimal_string
+            display_order: integer
+        created_at: datetime
+        updated_at: datetime
 
     - id: create_device
       method: POST
@@ -246,6 +422,49 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      request:
+        company: integer
+        site: integer
+        device_name: string
+        device_id: string
+        auth_id: string
+        auth_password: string
+        input_type: json_or_csv
+        csv_header_mode: header_exists_or_no_header
+        columns:
+          - column_name: string
+            display_name: string
+            data_type: number_or_string_or_boolean
+            unit: string
+            weight: number
+            display_order: integer
+      request_rules:
+        csv_header_mode_required: true
+        csv_header_mode_nullable: false
+        json_input_type_csv_header_mode_default: header_exists
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site: integer
+        site_name: string
+        device_id: string
+        device_name: string
+        auth_id: string
+        input_type: json_or_csv
+        csv_header_mode: header_exists_or_no_header
+        status: active_or_inactive
+        columns:
+          - id: integer
+            device: integer
+            column_name: string
+            display_name: string
+            data_type: number_or_string_or_boolean
+            unit: string
+            weight: decimal_string
+            display_order: integer
+        created_at: datetime
+        updated_at: datetime
 
     - id: update_device
       method: PUT
@@ -254,6 +473,52 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      path_params:
+        device_id: string
+      request:
+        company: integer
+        site: integer
+        device_name: string
+        auth_id: string
+        auth_password: optional_string
+        input_type: json_or_csv
+        csv_header_mode: header_exists_or_no_header
+        columns:
+          - column_name: string
+            display_name: string
+            data_type: number_or_string_or_boolean
+            unit: string
+            weight: number
+            display_order: integer
+      request_rules:
+        csv_header_mode_required: true
+        csv_header_mode_nullable: false
+        json_input_type_csv_header_mode_default: header_exists
+      immutable_fields:
+        - device_id
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site: integer
+        site_name: string
+        device_id: string
+        device_name: string
+        auth_id: string
+        input_type: json_or_csv
+        csv_header_mode: header_exists_or_no_header
+        status: active_or_inactive
+        columns:
+          - id: integer
+            device: integer
+            column_name: string
+            display_name: string
+            data_type: number_or_string_or_boolean
+            unit: string
+            weight: decimal_string
+            display_order: integer
+        created_at: datetime
+        updated_at: datetime
 
     - id: disable_device
       method: POST
@@ -262,6 +527,8 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      path_params:
+        device_id: string
 
     - id: get_device_columns
       method: GET
@@ -271,6 +538,17 @@ api_spec:
         - company_admin
         - site_admin
         - general_user
+      path_params:
+        device_id: string
+      response:
+        - id: integer
+          device: integer
+          column_name: string
+          display_name: string
+          data_type: number_or_string_or_boolean
+          unit: string
+          weight: decimal_string
+          display_order: integer
 
     - id: get_device_graph
       method: GET
@@ -280,6 +558,15 @@ api_spec:
         - company_admin
         - site_admin
         - general_user
+      path_params:
+        device_id: string
+      query:
+        from: optional_datetime
+        to: optional_datetime
+        column_name: optional_string
+      response:
+        device_id: string
+        points: array
 
   # ===========================================================================
   # 09. THRESHOLD API
@@ -293,6 +580,29 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      query:
+        company_id: optional_integer
+        site_id: optional_integer
+        device_id: optional_string
+        column_name: optional_string
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site: integer
+        site_name: string
+        device: integer
+        device_name: string
+        column_name: string
+        column_display_name: string
+        threshold_name: string
+        lower_limit: decimal_string
+        upper_limit: decimal_string
+        notification_emails: string
+        suppress_minutes: integer
+        current_status: normal_or_alert
+        created_at: datetime
+        updated_at: datetime
 
     - id: create_threshold
       method: POST
@@ -301,6 +611,36 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      request:
+        company: integer
+        site: integer
+        device: integer
+        column_name: string
+        threshold_name: string
+        lower_limit: nullable_number
+        upper_limit: nullable_number
+        notification_emails: string
+        suppress_minutes: integer
+      request_rules:
+        device_field: デバイス管理ID(device_id)ではなくデバイスのDB主キー(id)を指定する
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site: integer
+        site_name: string
+        device: integer
+        device_name: string
+        column_name: string
+        column_display_name: string
+        threshold_name: string
+        lower_limit: decimal_string
+        upper_limit: decimal_string
+        notification_emails: string
+        suppress_minutes: integer
+        current_status: normal_or_alert
+        created_at: datetime
+        updated_at: datetime
 
     - id: update_threshold
       method: PUT
@@ -309,6 +649,38 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      path_params:
+        threshold_id: integer
+      request:
+        company: integer
+        site: integer
+        device: integer
+        column_name: string
+        threshold_name: string
+        lower_limit: nullable_number
+        upper_limit: nullable_number
+        notification_emails: string
+        suppress_minutes: integer
+      request_rules:
+        device_field: デバイス管理ID(device_id)ではなくデバイスのDB主キー(id)を指定する
+      response:
+        id: integer
+        company: integer
+        company_name: string
+        site: integer
+        site_name: string
+        device: integer
+        device_name: string
+        column_name: string
+        column_display_name: string
+        threshold_name: string
+        lower_limit: decimal_string
+        upper_limit: decimal_string
+        notification_emails: string
+        suppress_minutes: integer
+        current_status: normal_or_alert
+        created_at: datetime
+        updated_at: datetime
 
     - id: delete_threshold
       method: DELETE
@@ -317,6 +689,8 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      path_params:
+        threshold_id: integer
 
   # ===========================================================================
   # 10. DASHBOARD API

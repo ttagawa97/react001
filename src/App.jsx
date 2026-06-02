@@ -129,7 +129,7 @@ function App() {
           <div className="user-box">
             <label className="role-switcher">
               <span>権限</span>
-              <select value={role} onChange={(event) => changeRole(event.target.value)}>
+              <select value={role} disabled onChange={(event) => changeRole(event.target.value)}>
                 {Object.entries(roleLabels).map(([roleId, label]) => (
                   <option key={roleId} value={roleId}>{label}</option>
                 ))}

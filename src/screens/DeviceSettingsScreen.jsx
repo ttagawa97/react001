@@ -112,14 +112,14 @@ function DeviceFormModal({ role, mode, device, onDataChanged, onError, onClose }
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const body = {
-      company_id: companyId,
-      site_id: siteId,
+      company: companyId,
+      site: siteId,
       device_name: formData.get('device_name'),
       device_id: formData.get('device_id'),
       auth_id: formData.get('auth_id'),
       auth_password: formData.get('auth_password') || undefined,
       input_type: inputType,
-      csv_header_mode: inputType === 'csv' ? csvHeaderMode : null,
+      csv_header_mode: inputType === 'csv' ? csvHeaderMode : 'header_exists',
       columns: columns.map((column, index) => ({
         column_name: formData.get(`column_name_${index}`) || column.key,
         display_name: formData.get(`display_name_${index}`) || column.label,

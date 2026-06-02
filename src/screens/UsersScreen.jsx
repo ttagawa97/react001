@@ -97,8 +97,8 @@ function UserFormModal({ role, mode, user, onDataChanged, onError, onClose }) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const body = {
-      company_id: companyId || null,
-      site_id: siteId || null,
+      company: companyId || null,
+      site: siteId || null,
       role: selectedRole,
       login_id: formData.get('login_id'),
       user_name: formData.get('user_name'),

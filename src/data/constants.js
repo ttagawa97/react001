@@ -40,6 +40,7 @@ export const statusLabels = {
   online: '稼働',
   warning: '警告',
   offline: '切断',
+  unknown: '不明',
 }
 
 export const graphPoints = [38, 45, 42, 58, 61, 54, 68, 64, 71, 76, 73, 82]

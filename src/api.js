@@ -1,4 +1,7 @@
 const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH ?? '/api/v1'
+const AUTH_TOKEN_STORAGE_KEY = 'iot_platform_auth_token'
+
+let authToken = sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY)
 
 export class ApiError extends Error {
   constructor(message, status, details) {
@@ -24,6 +27,7 @@ async function request(path, { method = 'GET', body, params } = {}) {
     method,
     headers: {
       Accept: 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     credentials: 'include',
@@ -44,9 +48,28 @@ async function request(path, { method = 'GET', body, params } = {}) {
   return payload?.data ?? payload
 }
 
+function setAuthToken(token) {
+  authToken = token ?? ''
+  if (authToken) {
+    sessionStorage.setItem(AUTH_TOKEN_STORAGE_KEY, authToken)
+  } else {
+    sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
+  }
+}
+
 export const api = {
-  login: (body) => request('/auth/login', { method: 'POST', body }),
-  logout: () => request('/auth/logout', { method: 'POST' }),
+  login: async (body) => {
+    const result = await request('/auth/login', { method: 'POST', body })
+    setAuthToken(result?.token)
+    return result
+  },
+  logout: async () => {
+    try {
+      return await request('/auth/logout', { method: 'POST' })
+    } finally {
+      setAuthToken('')
+    }
+  },
   requestPasswordReset: (body) => request('/auth/password-reset/request', { method: 'POST', body }),
   executePasswordReset: (body) => request('/auth/password-reset/execute', { method: 'POST', body }),
 
@@ -63,7 +86,8 @@ export const api = {
   updateUser: (userId, body) => request(`/users/${encodeURIComponent(userId)}`, { method: 'PUT', body }),
   resetUserPassword: (userId) => request(`/users/${encodeURIComponent(userId)}/reset-password`, { method: 'POST' }),
 
-  listDevices: (params) => request('/devices/latest', { params }),
+  listDevices: (params) => request('/devices', { params }),
+  listLatestDevices: (params) => request('/devices/latest', { params }),
   createDevice: (body) => request('/devices', { method: 'POST', body }),
   updateDevice: (deviceId, body) => request(`/devices/${encodeURIComponent(deviceId)}`, { method: 'PUT', body }),
   getDeviceGraph: (deviceId, params) => request(`/devices/${encodeURIComponent(deviceId)}/graph`, { params }),

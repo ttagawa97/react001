@@ -103,11 +103,12 @@ function ThresholdFormModal({ role, filter, selectedColumnKey, onDataChanged, on
   async function submit(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
+    const thresholdDevice = getDevice(deviceId)
     try {
       await api.createThreshold({
-        company_id: companyId,
-        site_id: siteId,
-        device_id: deviceId,
+        company: companyId,
+        site: siteId,
+        device: thresholdDevice?.apiId ?? deviceId,
         column_name: safeColumnKey,
         threshold_name: formData.get('threshold_name'),
         lower_limit: formData.get('lower_limit') || null,
