@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { formatApiError } from '../services/domain'
 
-export function LoginScreen({ error, isSubmitting, onLogin }) {
+export function LoginScreen({ error, isSubmitting, onClearError, onLogin }) {
   const [mode, setMode] = useState('login')
   const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
@@ -12,9 +12,20 @@ export function LoginScreen({ error, isSubmitting, onLogin }) {
   const [formError, setFormError] = useState('')
   const isResetMode = mode === 'password_reset'
 
+  function clearErrors() {
+    setFormError('')
+    onClearError()
+  }
+
+  function changeMode(nextMode) {
+    clearErrors()
+    setResetMessage('')
+    setMode(nextMode)
+  }
+
   async function submitLogin(event) {
     event.preventDefault()
-    setFormError('')
+    clearErrors()
     try {
       await onLogin({ login_id: loginId, password })
     } catch (submitError) {
@@ -24,7 +35,7 @@ export function LoginScreen({ error, isSubmitting, onLogin }) {
 
   async function submitPasswordReset(event) {
     event.preventDefault()
-    setFormError('')
+    clearErrors()
     setResetMessage('')
     try {
       await api.executePasswordReset({
@@ -65,7 +76,7 @@ export function LoginScreen({ error, isSubmitting, onLogin }) {
               <input type="password" autoComplete="new-password" />
             </label>
             <button type="submit" disabled={isSubmitting}>パスワードを変更</button>
-            <button className="text-button" type="button" onClick={() => setMode('login')}>
+            <button className="text-button" type="button" onClick={() => changeMode('login')}>
               ログイン画面へ戻る
             </button>
           </form>
@@ -81,7 +92,7 @@ export function LoginScreen({ error, isSubmitting, onLogin }) {
               <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
             </label>
             <button type="submit" disabled={isSubmitting}>{isSubmitting ? '通信中...' : 'ログイン'}</button>
-            <button className="text-button" type="button" onClick={() => setMode('password_reset')}>
+            <button className="text-button" type="button" onClick={() => changeMode('password_reset')}>
               パスワード再発行
             </button>
           </form>

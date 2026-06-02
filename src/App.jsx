@@ -86,8 +86,12 @@ function App() {
     setDataVersion((version) => version + 1)
   }
 
+  function clearAppError() {
+    setAppError('')
+  }
+
   if (!isLoggedIn) {
-    return <LoginScreen error={appError} isSubmitting={isLoadingData} onLogin={login} />
+    return <LoginScreen error={appError} isSubmitting={isLoadingData} onClearError={clearAppError} onLogin={login} />
   }
 
   return (
