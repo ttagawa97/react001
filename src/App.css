@@ -6,6 +6,10 @@
   color: #17202a;
 }
 
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 84px minmax(0, 1fr);
+}
+
 .sidebar {
   background: #152033;
   color: #f6f8fb;
@@ -20,6 +24,10 @@
   align-items: center;
   gap: 12px;
   min-height: 48px;
+}
+
+.sidebar-collapsed .brand {
+  justify-content: center;
 }
 
 .brand-mark {
@@ -49,9 +57,65 @@
   margin-top: 3px;
 }
 
+.sidebar-toggle {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(215, 222, 232, 0.16);
+  border-radius: 6px;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  height: 34px;
+  margin-left: auto;
+  padding: 8px;
+  width: 34px;
+}
+
+.sidebar-toggle span {
+  background: #d7dee8;
+  border-radius: 999px;
+  display: block;
+  height: 2px;
+  width: 16px;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.sidebar-collapsed .brand-mark,
+.sidebar-collapsed .brand-copy,
+.sidebar-collapsed .menu-button span,
+.sidebar-collapsed .menu-group-label {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-toggle {
+  margin-left: 0;
+}
+
 .side-menu {
   display: grid;
+  gap: 14px;
+}
+
+.menu-group {
+  display: grid;
   gap: 6px;
+}
+
+.maintenance-group {
+  border-top: 1px solid rgba(215, 222, 232, 0.28);
+  margin-top: 4px;
+  padding-top: 14px;
+}
+
+.menu-group-label {
+  color: #93a3b5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0 0 2px;
 }
 
 .menu-button {
@@ -69,6 +133,11 @@
   font-size: 14px;
   cursor: pointer;
   text-align: left;
+}
+
+.sidebar-collapsed .menu-button {
+  justify-content: center;
+  padding: 0;
 }
 
 .menu-button:hover {
@@ -692,7 +761,13 @@ button:hover {
 table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   min-width: 780px;
+}
+
+.device-table-panel table {
+  table-layout: fixed;
+  min-width: 1080px;
 }
 
 .compact-table table {
@@ -707,10 +782,13 @@ table {
 th,
 td {
   border-bottom: 1px solid #e2e8f0;
+  overflow: hidden;
   padding: 14px 16px;
   text-align: left;
+  text-overflow: ellipsis;
   vertical-align: middle;
   font-size: 14px;
+  white-space: nowrap;
 }
 
 th {
@@ -719,6 +797,40 @@ th {
   font-size: 12px;
   letter-spacing: 0;
   white-space: nowrap;
+}
+
+.sort-header-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-weight: 800;
+  gap: 6px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.sort-header-button span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sort-indicator {
+  color: #2178a9;
+  flex: 0 0 auto;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.sort-header-button:hover {
+  color: #111827;
 }
 
 td {

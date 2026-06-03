@@ -15,6 +15,13 @@
 #   - 企業マスタ管理画面 company_settings を追加
 #   - company_settings はシステム管理者のみ表示
 #   - 企業一覧、企業追加、企業変更、企業無効化を画面操作可能とする
+#   - 一覧表示テーブルのカラム幅を固定とする
+#   - 一覧表示テーブルに昇順・降順ソートを追加
+#   - サイドメニューの設定系メニューをメンテナンスグループとして区分表示する
+#   - サイドメニューにハンバーガーによる開閉機能を追加
+#   - ユーザー一覧でシステム管理者は全企業選択時のみ表示する
+#   - ユーザー一覧で企業管理者は全現場選択時のみ表示する
+#   - ログイン後は認証ユーザーの権限で初期データを取得する
 #
 # =============================================================================
 
@@ -63,15 +70,44 @@ ui_spec:
 
     sidebar:
       enabled: true
+      collapsible: true
+      toggle:
+        type: hamburger_button
+        position: sidebar_header
+        behavior: toggle_collapsed_expanded
+        collapsed_display: icon_only
+        expanded_display: icon_and_label
+        accessibility:
+          aria_label:
+            collapsed: メニューを開く
+            expanded: メニューを閉じる
+      menu_groups:
+        - id: main
+          label: ""
+          separator: none
+          items:
+            - dashboard
+            - devices
+        - id: maintenance
+          label: メンテナンス
+          separator: top_line
+          items:
+            - company_settings
+            - site_settings
+            - user_settings
+            - device_settings
+            - threshold_settings
+            - audit_logs
       menu_items:
-        - { id: dashboard, label: ダッシュボード, route: /dashboard }
-        - { id: devices, label: デバイス一覧, route: /devices }
-        - { id: company_settings, label: 企業設定, route: /settings/companies }
-        - { id: site_settings, label: 現場設定, route: /settings/sites }
-        - { id: user_settings, label: ユーザー設定, route: /settings/users }
-        - { id: device_settings, label: デバイス設定, route: /settings/devices }
-        - { id: threshold_settings, label: 閾値設定, route: /settings/thresholds }
-        - { id: audit_logs, label: 監査ログ, route: /settings/audit-logs }
+        - { id: dashboard, label: ダッシュボード, route: /dashboard, group: main }
+        - { id: devices, label: デバイス一覧, route: /devices, group: main }
+        - { id: company_settings, label: 企業設定, route: /settings/companies, group: maintenance }
+        - { id: site_settings, label: 現場設定, route: /settings/sites, group: maintenance }
+        - { id: user_settings, label: ユーザー設定, route: /settings/users, group: maintenance }
+        - { id: device_settings, label: デバイス設定, route: /settings/devices, group: maintenance }
+        - { id: threshold_settings, label: 閾値設定, route: /settings/thresholds, group: maintenance }
+        - { id: audit_logs, label: 監査ログ, route: /settings/audit-logs, group: maintenance }
+      implementation_note: サイドメニューは menu_groups の順序で表示し、maintenance グループは上線で main グループと視覚的に区分する。権限により表示対象がないグループは非表示とする。
 
     menu_visibility:
       company_settings:
@@ -93,6 +129,28 @@ ui_spec:
       - site_id
       - device_id
     enabled_rule_ref: 01_overall_spec.common_filter_policy.enabled_rule
+
+  common_table_component:
+    applies_to:
+      - type: Table
+    layout:
+      column_width_policy: fixed
+      default_width_rule: equal_width_by_column_count
+      overflow_behavior: horizontal_scroll
+      cell_overflow: ellipsis
+    sorting:
+      enabled: true
+      applies_to_all_columns: true
+      trigger: click_column_header
+      initial_state: unsorted
+      toggle_order:
+        - ascending
+        - descending
+      compare:
+        text_locale: ja
+        numeric: true
+      implementation_note: ヘッダークリックで対象カラムの昇順・降順を切り替える。ソートは表示中の一覧データに対して行い、同値の場合は元の表示順を維持する。
+    note: 一覧表示のカラム幅は表示内容により伸縮させない。個別に column width が指定された場合はその固定幅を使用する。
 
   # ===========================================================================
   # 05. SCREEN TRANSITION
@@ -144,6 +202,11 @@ ui_spec:
           type: Button
           label: ログイン
           action: call_login_api
+          success_flow:
+            - set_authenticated_user_role
+            - set_authenticated_user_scope
+            - load_initial_data_by_authenticated_role
+          implementation_note: ログイン後の初期データ取得では認証ユーザーの role に応じて許可された API のみ呼び出す。企業名などの参照用マスタは /masters/* を使用し、企業管理者・現場管理者・一般ユーザーで /companies を必須呼び出しにしない。
 
         - id: password_reset_link
           type: Link
@@ -223,15 +286,26 @@ ui_spec:
           type: Table
           datasource: GET /devices/latest
           row_click_action: navigate_device_graph
+          layout:
+            column_width_policy: fixed
+            min_width_px: 1080
           columns:
-            - company_name
-            - site_name
-            - device_name
-            - device_id
-            - latest_values
-            - latest_received_at
-            - communication_status
-            - alert_status
+            - id: company_name
+              width: 14%
+            - id: site_name
+              width: 14%
+            - id: device_name
+              width: 18%
+            - id: device_id
+              width: 13%
+            - id: latest_values
+              width: 16%
+            - id: latest_received_at
+              width: 13%
+            - id: communication_status
+              width: 6%
+            - id: alert_status
+              width: 6%
 
     # -------------------------------------------------------------------------
     # 06-05. DEVICE GRAPH SCREEN
@@ -473,6 +547,21 @@ ui_spec:
         - id: user_table
           type: Table
           datasource: GET /users
+          display_rule:
+            system_admin_users:
+              visible_when:
+                company_id: all
+              hidden_when:
+                company_id: specific_company
+            company_admin_users:
+              visible_when:
+                site_id: all
+              hidden_when:
+                site_id: specific_site
+            other_users:
+              filter_by:
+                - company_id
+                - site_id
           interaction:
             double_click_row:
               action: open_user_form_modal

@@ -74,6 +74,9 @@ export const api = {
   executePasswordReset: (body) => request('/auth/password-reset/execute', { method: 'POST', body }),
 
   listCompanies: () => request('/companies'),
+  listMasterCompanies: () => request('/masters/companies'),
+  listMasterSites: () => request('/masters/sites'),
+  listMasterDevices: () => request('/masters/devices'),
   createCompany: (body) => request('/companies', { method: 'POST', body }),
   updateCompany: (companyId, body) => request(`/companies/${encodeURIComponent(companyId)}`, { method: 'PUT', body }),
   disableCompany: (companyId) => request(`/companies/${encodeURIComponent(companyId)}/disable`, { method: 'POST' }),

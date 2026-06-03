@@ -136,7 +136,7 @@ function DeviceFormModal({ role, mode, device, onDataChanged, onError, onClose }
       } else {
         await api.createDevice(body)
       }
-      await loadInitialData()
+      await loadInitialData(role)
       onDataChanged()
       onClose()
     } catch (error) {

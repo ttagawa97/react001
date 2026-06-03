@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { api } from './api'
 import { ApiErrorBanner, LoadingStrip } from './components/Feedback'
 import { Icon } from './components/Icon'
-import { menuItems, menuVisibility, roleLabels, roleProfiles } from './data/constants'
-import { devices } from './data/store'
+import { menuGroups, menuItems, menuVisibility, roleLabels, roleProfiles, updateRoleProfile } from './data/constants'
+import { devices, users } from './data/store'
 import { AuditLogScreen } from './screens/AuditLogScreen'
 import { CompanySettingsScreen } from './screens/CompanySettingsScreen'
 import { DashboardScreen } from './screens/DashboardScreen'
@@ -17,6 +17,40 @@ import { UsersScreen } from './screens/UsersScreen'
 import { formatApiError, getDevice, getScopeDefaults, loadInitialData, matchesFilter, normalizeFilter } from './services/domain'
 import './App.css'
 
+function decodeJwtPayload(token) {
+  if (!token || typeof token !== 'string' || token.split('.').length < 2) return null
+
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(window.atob(payload))
+  } catch {
+    return null
+  }
+}
+
+function pickAuthSource(result) {
+  return result?.user ?? result?.profile ?? result?.account ?? result?.auth_user ?? result ?? {}
+}
+
+function normalizeAuthUser(result, loginId) {
+  const tokenPayload = decodeJwtPayload(result?.token)
+  const source = {
+    ...tokenPayload,
+    ...pickAuthSource(result),
+  }
+  const roleId = source.roleId ?? source.role_id ?? source.role ?? source.user_role
+  const companyId = source.companyId ?? source.company_id ?? source.company ?? null
+  const siteId = source.siteId ?? source.site_id ?? source.site ?? null
+
+  return {
+    loginId: source.loginId ?? source.login_id ?? source.username ?? loginId,
+    roleId: roleLabels[roleId] ? roleId : 'system_admin',
+    hasRole: Boolean(roleLabels[roleId]),
+    companyId: companyId == null ? null : String(companyId),
+    siteId: siteId == null ? null : String(siteId),
+  }
+}
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [activeScreen, setActiveScreen] = useState('dashboard')
@@ -26,9 +60,16 @@ function App() {
   const [, setDataVersion] = useState(0)
   const [appError, setAppError] = useState('')
   const [isLoadingData, setIsLoadingData] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   const allowedMenuIds = menuVisibility[role]
   const visibleMenuItems = menuItems.filter((item) => allowedMenuIds.includes(item.id))
+  const visibleMenuGroups = menuGroups
+    .map((group) => ({
+      ...group,
+      items: visibleMenuItems.filter((item) => item.group === group.id),
+    }))
+    .filter((group) => group.items.length > 0)
   const activeLabel = activeScreen === 'device_graph'
     ? '時系列グラフ'
     : menuItems.find((item) => item.id === activeScreen)?.label
@@ -52,11 +93,29 @@ function App() {
 
   async function login(credentials) {
     setAppError('')
-    await api.login(credentials)
+    const loginResult = await api.login(credentials)
+    const authUser = normalizeAuthUser(loginResult, credentials.login_id)
+    let nextRole = authUser.roleId
+    updateRoleProfile(nextRole, {
+      loginId: authUser.loginId,
+      companyId: authUser.companyId,
+      siteId: authUser.siteId,
+    })
+    setRole(nextRole)
     setIsLoadingData(true)
     try {
-      await loadInitialData()
-      const nextFilter = getScopeDefaults(role)
+      await loadInitialData(nextRole)
+      const loadedUser = users.find((user) => user.loginId === authUser.loginId)
+      if (!authUser.hasRole && roleLabels[loadedUser?.roleId]) {
+        nextRole = loadedUser.roleId
+        updateRoleProfile(nextRole, {
+          loginId: loadedUser.loginId,
+          companyId: loadedUser.companyId,
+          siteId: loadedUser.siteId,
+        })
+        setRole(nextRole)
+      }
+      const nextFilter = getScopeDefaults(nextRole)
       setFilter(nextFilter)
       setSelectedDeviceId(devices.find((device) => matchesFilter(device, nextFilter))?.id ?? devices[0]?.id ?? '')
       setDataVersion((version) => version + 1)
@@ -95,27 +154,44 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={isSidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">IP</div>
-          <div>
+          <div className="brand-copy">
             <strong>iot_platform</strong>
             <span>authority scoped mock</span>
           </div>
+          <button
+            aria-label={isSidebarCollapsed ? 'メニューを開く' : 'メニューを閉じる'}
+            aria-expanded={!isSidebarCollapsed}
+            className="sidebar-toggle"
+            type="button"
+            onClick={() => setIsSidebarCollapsed((current) => !current)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
         </div>
 
         <nav className="side-menu" aria-label="メインメニュー">
-          {visibleMenuItems.map((item) => (
-            <button
-              className={item.id === activeScreen ? 'menu-button active' : 'menu-button'}
-              key={item.id}
-              type="button"
-              onClick={() => setActiveScreen(item.id)}
-            >
-              <Icon type={item.icon} />
-              <span>{item.label}</span>
-            </button>
+          {visibleMenuGroups.map((group) => (
+            <div className={group.id === 'maintenance' ? 'menu-group maintenance-group' : 'menu-group'} key={group.id}>
+              {group.label && <p className="menu-group-label">{group.label}</p>}
+              {group.items.map((item) => (
+                <button
+                  className={item.id === activeScreen ? 'menu-button active' : 'menu-button'}
+                  key={item.id}
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  type="button"
+                  onClick={() => setActiveScreen(item.id)}
+                >
+                  <Icon type={item.icon} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>

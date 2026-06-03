@@ -1,12 +1,17 @@
 export const menuItems = [
-  { id: 'dashboard', label: 'ダッシュボード', icon: 'grid' },
-  { id: 'devices', label: 'デバイス一覧', icon: 'device' },
-  { id: 'company_settings', label: '企業設定', icon: 'company' },
-  { id: 'site_settings', label: '現場設定', icon: 'site' },
-  { id: 'user_settings', label: 'ユーザー設定', icon: 'user' },
-  { id: 'device_settings', label: 'デバイス設定', icon: 'tune' },
-  { id: 'threshold_settings', label: '閾値設定', icon: 'alert' },
-  { id: 'audit_logs', label: '監査ログ', icon: 'log' },
+  { id: 'dashboard', label: 'ダッシュボード', icon: 'grid', group: 'main' },
+  { id: 'devices', label: 'デバイス一覧', icon: 'device', group: 'main' },
+  { id: 'company_settings', label: '企業設定', icon: 'company', group: 'maintenance' },
+  { id: 'site_settings', label: '現場設定', icon: 'site', group: 'maintenance' },
+  { id: 'user_settings', label: 'ユーザー設定', icon: 'user', group: 'maintenance' },
+  { id: 'device_settings', label: 'デバイス設定', icon: 'tune', group: 'maintenance' },
+  { id: 'threshold_settings', label: '閾値設定', icon: 'alert', group: 'maintenance' },
+  { id: 'audit_logs', label: '監査ログ', icon: 'log', group: 'maintenance' },
+]
+
+export const menuGroups = [
+  { id: 'main', label: '' },
+  { id: 'maintenance', label: 'メンテナンス' },
 ]
 
 export const roleLabels = {
@@ -27,6 +32,13 @@ export const roleProfiles = {
   company_admin: { loginId: 'minato-admin', companyId: 'co-minato', siteId: null },
   site_admin: { loginId: 'cold-lead', companyId: 'co-minato', siteId: 'st-cold' },
   general_user: { loginId: 'cold-viewer', companyId: 'co-minato', siteId: 'st-cold' },
+}
+
+export function updateRoleProfile(roleId, profile) {
+  roleProfiles[roleId] = {
+    ...(roleProfiles[roleId] ?? {}),
+    ...profile,
+  }
 }
 
 export const menuVisibility = {

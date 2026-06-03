@@ -2,9 +2,13 @@ import { getCompany, getLatestValues, getSite } from '../services/domain'
 import { StatusBadge } from './Badges'
 import { Table } from './Table'
 
+const deviceTableColumnWidths = ['14%', '14%', '18%', '13%', '16%', '13%', '6%', '6%']
+
 export function DeviceTable({ rows, selectedDeviceId, onSelectDevice, onOpenDevice }) {
   return (
     <Table
+      className="device-table-panel"
+      columnWidths={deviceTableColumnWidths}
       headers={['企業', '現場', 'デバイス名', 'デバイスID', '最新値', '最終受信', '通信状態', '閾値状態']}
       rows={rows.map((device) => ({
         id: device.id,

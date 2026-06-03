@@ -116,7 +116,7 @@ function ThresholdFormModal({ role, filter, selectedColumnKey, onDataChanged, on
         notification_emails: formData.get('notification_emails'),
         suppress_minutes: formData.get('suppress_minutes'),
       })
-      await loadInitialData()
+      await loadInitialData(role)
       onDataChanged()
       onClose()
     } catch (error) {

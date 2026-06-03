@@ -80,7 +80,7 @@ function CompanyFormModal({ mode, company, onDataChanged, onError, onClose }) {
   async function disableCompany() {
     try {
       await api.disableCompany(company.id)
-      await loadInitialData()
+      await loadInitialData('system_admin')
       setStatus('inactive')
       setDisableMessage('企業無効化リクエストを受け付けました')
       onDataChanged()
@@ -103,7 +103,7 @@ function CompanyFormModal({ mode, company, onDataChanged, onError, onClose }) {
       } else {
         await api.createCompany(body)
       }
-      await loadInitialData()
+      await loadInitialData('system_admin')
       onDataChanged()
       onClose()
     } catch (error) {

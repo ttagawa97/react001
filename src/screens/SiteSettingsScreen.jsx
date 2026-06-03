@@ -61,7 +61,7 @@ function SiteAddModal({ role, filter, onDataChanged, onError, onClose }) {
         site_name: formData.get('site_name'),
         address: formData.get('address'),
       })
-      await loadInitialData()
+      await loadInitialData(role)
       onDataChanged()
       onClose()
     } catch (error) {

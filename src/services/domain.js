@@ -164,15 +164,28 @@ export function normalizeThreshold(threshold) {
   }
 }
 
-export async function loadInitialData() {
+async function optionalData(request, fallback = []) {
+  try {
+    return await request()
+  } catch {
+    return fallback
+  }
+}
+
+export async function loadInitialData(role = 'system_admin') {
+  const canReadCompanies = role === 'system_admin'
+  const canReadManagementTables = role !== 'general_user'
+
   const [companyData, siteData, deviceData, latestDeviceData, userData, thresholdData, auditLogData] = await Promise.all([
-    api.listCompanies(),
+    canReadCompanies
+      ? optionalData(api.listCompanies).then((data) => (asArray(data).length > 0 ? data : optionalData(api.listMasterCompanies, companies)))
+      : optionalData(api.listMasterCompanies, companies),
     api.listSites(),
     api.listDevices(),
     api.listLatestDevices(),
-    api.listUsers(),
-    api.listThresholds(),
-    api.listAuditLogs(),
+    canReadManagementTables ? optionalData(api.listUsers) : Promise.resolve([]),
+    canReadManagementTables ? optionalData(api.listThresholds) : Promise.resolve([]),
+    canReadManagementTables ? optionalData(api.listAuditLogs) : Promise.resolve([]),
   ])
 
   replaceCollection(companies, asArray(companyData).map(normalizeCompany))
