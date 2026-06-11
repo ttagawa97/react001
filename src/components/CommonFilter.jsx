@@ -1,5 +1,5 @@
 import { roleLabels, roleProfiles } from '../data/constants'
-import { companies, devices, sites } from '../data/store'
+import { companies, sites } from '../data/store'
 import { FilterPanel, SelectField } from './FormFields'
 
 export function CommonFilter({ role, filter, onChange }) {
@@ -13,21 +13,18 @@ export function CommonFilter({ role, filter, onChange }) {
     (profile.companyId ? site.companyId === profile.companyId : filter.companyId === 'all' || site.companyId === filter.companyId) &&
     (!profile.siteId || site.id === profile.siteId)
   ))
-  const deviceOptions = devices.filter((device) => (
-    (filter.companyId === 'all' || device.companyId === filter.companyId) &&
-    (filter.siteId === 'all' || device.siteId === filter.siteId)
-  ))
 
   function changeCompany(companyId) {
-    onChange({ companyId, siteId: 'all', deviceId: 'all' })
+    onChange({ companyId, siteId: 'all' })
   }
 
   function changeSite(siteId) {
-    onChange({ ...filter, siteId, deviceId: 'all' })
-  }
-
-  function changeDevice(deviceId) {
-    onChange({ ...filter, deviceId })
+    const selectedSite = sites.find((site) => site.id === siteId)
+    onChange({
+      ...filter,
+      companyId: filter.companyId === 'all' && selectedSite ? selectedSite.companyId : filter.companyId,
+      siteId,
+    })
   }
 
   return (
@@ -39,10 +36,6 @@ export function CommonFilter({ role, filter, onChange }) {
       <SelectField label="現場" value={filter.siteId} onChange={changeSite} disabled={siteDisabled}>
         {!profile.siteId && <option value="all">全現場</option>}
         {siteOptions.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
-      </SelectField>
-      <SelectField label="デバイス" value={filter.deviceId} onChange={changeDevice}>
-        <option value="all">全デバイス</option>
-        {deviceOptions.map((device) => <option key={device.id} value={device.id}>{device.name}</option>)}
       </SelectField>
       <div className="filter-note">
         <span>適用権限</span>

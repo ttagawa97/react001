@@ -10,13 +10,14 @@ import { formatApiError, getDevice, getSite, getCompany, getThresholdRows, loadI
 
 export function ThresholdScreen({ role, filter, onFilterChange, onDataChanged, onError }) {
   const scopedDevices = devices.filter((device) => matchesFilter(device, filter))
-  const selectedDevice = filter.deviceId !== 'all' ? getDevice(filter.deviceId) : scopedDevices[0]
-  const [columnKey, setColumnKey] = useState(selectedDevice?.columns[0]?.key ?? '')
+  const columnOptions = scopedDevices
+    .flatMap((device) => device.columns)
+    .filter((column, index, columns) => columns.findIndex((item) => item.key === column.key) === index)
+  const [columnKey, setColumnKey] = useState(columnOptions[0]?.key ?? '')
   const [isThresholdFormOpen, setIsThresholdFormOpen] = useState(false)
-  const availableColumns = selectedDevice?.columns ?? []
-  const safeColumnKey = availableColumns.some((column) => column.key === columnKey)
+  const safeColumnKey = columnOptions.some((column) => column.key === columnKey)
     ? columnKey
-    : availableColumns[0]?.key ?? ''
+    : columnOptions[0]?.key ?? ''
   const rows = getThresholdRows(scopedDevices).filter((row) => (
     !safeColumnKey || row.columnKey === safeColumnKey
   ))
@@ -32,7 +33,7 @@ export function ThresholdScreen({ role, filter, onFilterChange, onDataChanged, o
       <CommonFilter role={role} filter={filter} onChange={onFilterChange} />
       <FilterPanel>
         <SelectField label="カラム" value={safeColumnKey} onChange={setColumnKey}>
-          {availableColumns.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
+          {columnOptions.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
         </SelectField>
       </FilterPanel>
       <Table
@@ -59,9 +60,7 @@ function ThresholdFormModal({ role, filter, selectedColumnKey, onDataChanged, on
   const initialSiteId = profile.siteId ?? (filter.siteId === 'all'
     ? sites.find((site) => site.companyId === initialCompanyId)?.id ?? ''
     : filter.siteId)
-  const initialDeviceId = filter.deviceId === 'all'
-    ? devices.find((device) => device.companyId === initialCompanyId && device.siteId === initialSiteId)?.id ?? ''
-    : filter.deviceId
+  const initialDeviceId = devices.find((device) => device.companyId === initialCompanyId && device.siteId === initialSiteId)?.id ?? ''
   const initialColumnKey = selectedColumnKey || getDevice(initialDeviceId)?.columns[0]?.key || ''
   const [companyId, setCompanyId] = useState(initialCompanyId)
   const [siteId, setSiteId] = useState(initialSiteId)
@@ -69,7 +68,7 @@ function ThresholdFormModal({ role, filter, selectedColumnKey, onDataChanged, on
   const [columnKey, setColumnKey] = useState(initialColumnKey)
   const companyEditable = role === 'system_admin' && filter.companyId === 'all'
   const siteEditable = !profile.siteId && filter.siteId === 'all'
-  const deviceEditable = filter.deviceId === 'all'
+  const deviceEditable = true
   const availableSites = sites.filter((site) => site.companyId === companyId)
   const availableDevices = devices.filter((device) => device.companyId === companyId && device.siteId === siteId)
   const selectedDevice = getDevice(deviceId)

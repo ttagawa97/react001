@@ -6,7 +6,7 @@ import { matchesFilter } from '../services/domain'
 
 export function AuditLogScreen({ role, filter, onFilterChange }) {
   const rows = auditLogs
-    .filter((log) => matchesFilter({ ...log, deviceId: 'all' }, { ...filter, deviceId: 'all' }))
+    .filter((log) => matchesFilter(log, filter))
     .map((log) => [log.at, log.user, log.action, log.target])
 
   return (

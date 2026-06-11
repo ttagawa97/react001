@@ -123,11 +123,10 @@ ui_spec:
   # ===========================================================================
 
   common_filter_component:
-    id: company_site_device_filter
+    id: company_site_filter
     fields:
       - company_id
       - site_id
-      - device_id
     enabled_rule_ref: 01_overall_spec.common_filter_policy.enabled_rule
 
   common_table_component:
@@ -275,7 +274,6 @@ ui_spec:
         fields:
           - company_id
           - site_id
-          - device_id
       components:
         - id: refresh_button
           type: Button
@@ -321,7 +319,6 @@ ui_spec:
         fields:
           - company_id
           - site_id
-          - device_id
       components:
         - id: graph_filter_area
           type: HStack
@@ -551,8 +548,10 @@ ui_spec:
             system_admin_users:
               visible_when:
                 company_id: all
+                site_id: all
               hidden_when:
                 company_id: specific_company
+                site_id: specific_site
             company_admin_users:
               visible_when:
                 site_id: all
@@ -674,7 +673,6 @@ ui_spec:
         fields:
           - company_id
           - site_id
-          - device_id
       components:
         - id: device_table
           type: Table
@@ -837,13 +835,11 @@ ui_spec:
         fields:
           - company_id
           - site_id
-          - device_id
           - column_name
         column_name:
           type: Select
           label: カラム
-          depends_on: device_id
-          datasource: GET /devices/{device_id}/columns
+          datasource: GET /thresholds column_name options scoped by company_id/site_id
       components:
         - id: threshold_table
           type: Table
@@ -851,7 +847,6 @@ ui_spec:
           filter_by:
             - company_id
             - site_id
-            - device_id
             - column_name
           interaction:
             double_click_row:
@@ -892,7 +887,7 @@ ui_spec:
 
             - id: device_id
               type: HiddenOrSelect
-              source: threshold_filter.device_id
+              source: form_device_selector.device_id
 
             - id: column_name
               type: HiddenOrSelect

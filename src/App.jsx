@@ -73,13 +73,11 @@ function App() {
   const activeLabel = activeScreen === 'device_graph'
     ? '時系列グラフ'
     : menuItems.find((item) => item.id === activeScreen)?.label
-  const filteredDevice = filter.deviceId !== 'all' ? getDevice(filter.deviceId) : null
-  const selectedDevice = filteredDevice ?? getDevice(selectedDeviceId) ?? devices[0] ?? null
+  const selectedDevice = getDevice(selectedDeviceId) ?? devices.find((device) => matchesFilter(device, filter)) ?? devices[0] ?? null
 
   function applyFilter(nextFilter) {
     const normalized = normalizeFilter(role, nextFilter)
     setFilter(normalized)
-    if (normalized.deviceId !== 'all') setSelectedDeviceId(normalized.deviceId)
   }
 
   function changeRole(nextRole) {

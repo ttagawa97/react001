@@ -241,6 +241,9 @@ api_spec:
       query:
         company_id: optional_integer
         site_id: optional_integer
+      query_rule:
+        site_id_selection_requires_company_scope: true
+        system_admin_users_visible_only_when_company_id_and_site_id_are_omitted: true
       response:
         id: integer
         company: nullable_integer
@@ -583,7 +586,6 @@ api_spec:
       query:
         company_id: optional_integer
         site_id: optional_integer
-        device_id: optional_string
         column_name: optional_string
       response:
         id: integer

@@ -224,28 +224,23 @@ overall_spec:
     fields:
       - company_id
       - site_id
-      - device_id
 
     role_behavior:
       system_admin:
         company_id: editable
         site_id: editable
-        device_id: editable
 
       company_admin:
         company_id: readonly
         site_id: editable
-        device_id: editable
 
       site_admin:
         company_id: readonly
         site_id: readonly
-        device_id: editable
 
       general_user:
         company_id: readonly
         site_id: readonly
-        device_id: editable
 
   # ===========================================================================
   # 08. USER MANAGEMENT RULES

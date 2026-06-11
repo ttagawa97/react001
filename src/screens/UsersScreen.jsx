@@ -12,7 +12,7 @@ import { getUserAddRoleOptions } from '../services/users'
 export function UsersScreen({ role, filter, onFilterChange, onDataChanged, onError }) {
   const [userFormState, setUserFormState] = useState(null)
   const filteredUsers = users.filter((user) => {
-    if (user.roleId === 'system_admin') return filter.companyId === 'all'
+    if (user.roleId === 'system_admin') return filter.companyId === 'all' && filter.siteId === 'all'
     if (user.roleId === 'company_admin' && filter.siteId !== 'all') return false
 
     const companyMatch = filter.companyId === 'all' || !user.companyId || user.companyId === filter.companyId

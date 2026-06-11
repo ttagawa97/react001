@@ -225,38 +225,37 @@ export function getScopeDefaults(role) {
   return {
     companyId: profile.companyId ?? 'all',
     siteId: profile.siteId ?? 'all',
-    deviceId: 'all',
   }
 }
 
 export function normalizeFilter(role, nextFilter) {
   const profile = roleProfiles[role]
-  const companyId = profile.companyId ?? nextFilter.companyId ?? 'all'
-  const siteId = profile.siteId ?? nextFilter.siteId ?? 'all'
-  let deviceId = nextFilter.deviceId ?? 'all'
+  let companyId = profile.companyId ?? nextFilter.companyId ?? 'all'
+  let siteId = profile.siteId ?? nextFilter.siteId ?? 'all'
 
-  if (deviceId !== 'all') {
-    const device = getDevice(deviceId)
-    const invalidCompany = companyId !== 'all' && device?.companyId !== normalizeId(companyId)
-    const invalidSite = siteId !== 'all' && device?.siteId !== normalizeId(siteId)
-    if (!device || invalidCompany || invalidSite) deviceId = 'all'
+  if (siteId !== 'all') {
+    const site = getSite(siteId)
+    if (!site) {
+      siteId = 'all'
+    } else if (companyId === 'all') {
+      companyId = site.companyId
+    } else if (site.companyId !== companyId) {
+      siteId = 'all'
+    }
   }
 
-  return { companyId, siteId, deviceId }
+  return { companyId, siteId }
 }
 
 export function matchesFilter(item, filter) {
   const itemCompanyId = normalizeId(item.companyId)
   const itemSiteId = normalizeId(item.siteId)
-  const itemDeviceId = normalizeId(item.deviceId ?? item.id)
   const filterCompanyId = normalizeId(filter.companyId)
   const filterSiteId = normalizeId(filter.siteId)
-  const filterDeviceId = normalizeId(filter.deviceId)
 
   return (
     (filter.companyId === 'all' || itemCompanyId === filterCompanyId) &&
-    (filter.siteId === 'all' || itemSiteId === filterSiteId) &&
-    (filter.deviceId === 'all' || itemDeviceId === filterDeviceId)
+    (filter.siteId === 'all' || itemSiteId === filterSiteId)
   )
 }
 

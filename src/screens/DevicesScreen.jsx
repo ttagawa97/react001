@@ -9,7 +9,7 @@ export function DevicesScreen({ role, filter, onFilterChange, selectedDeviceId, 
 
   return (
     <div className="screen-stack">
-      <Toolbar title="現場別・デバイス別の最新値" action="更新" detail="企業・現場・デバイスの共通絞り込みで表示範囲を制御します。" />
+      <Toolbar title="現場別・デバイス別の最新値" action="更新" detail="企業・現場の共通絞り込みで表示範囲を制御します。" />
       <CommonFilter role={role} filter={filter} onChange={onFilterChange} />
       <DeviceTable
         rows={filteredDevices}
@@ -17,7 +17,7 @@ export function DevicesScreen({ role, filter, onFilterChange, selectedDeviceId, 
         onSelectDevice={onSelectDevice}
         onOpenDevice={(device) => {
           onSelectDevice(device.id)
-          onFilterChange({ companyId: device.companyId, siteId: device.siteId, deviceId: device.id })
+          onFilterChange({ companyId: device.companyId, siteId: device.siteId })
           onNavigate('device_graph')
         }}
       />
