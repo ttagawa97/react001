@@ -6,10 +6,10 @@
 #   05_infra_spec.yaml
 #
 # Spec Version:
-#   1.8.0
+#   2.0.0
 #
 # Last Updated:
-#   2026-06-01
+#   2026-06-12
 #
 # Authoring Agent:
 #   OpenAI GPT-5.5
@@ -28,7 +28,7 @@ infra_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 1.8.0
+    spec_version: 2.0.0
     document_type: infrastructure_specification
 
   # ===========================================================================
@@ -47,14 +47,26 @@ infra_spec:
       api_client: axios
 
     backend:
-      framework: Django
-      api_framework: Django REST Framework
-      language: Python
+      development:
+        framework: Django
+        api_framework: Django REST Framework
+        language: Python
+        device_receive_api: same_backend_api
+        status: implemented
+      production_device_receive:
+        runtime: AWS Lambda
+        language: Python
+        status: pending
 
     database:
-      engine: TimescaleDB
-      base: PostgreSQL
-      docker_image: timescale/timescaledb:latest-pg17
+      development:
+        engine: SQLite
+        status: implemented
+      production:
+        engine: TimescaleDB
+        base: PostgreSQL
+        docker_image: timescale/timescaledb:latest-pg17
+        status: pending
 
     background_processing:
       framework: Celery
@@ -225,6 +237,9 @@ infra_spec:
   # ===========================================================================
 
   pending_items:
+    - production_device_receive_aws_lambda
+    - production_timescaledb_write
+    - production_receive_async_processing
     - development_mail_server
     - aws_ses_region
     - aws_ses_verified_sender

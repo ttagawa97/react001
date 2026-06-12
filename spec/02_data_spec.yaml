@@ -10,10 +10,10 @@
 #   TimescaleDB、ダウンサンプリング、検証ルールを定義する。
 #
 # Spec Version:
-#   1.8.0
+#   2.0.0
 #
 # Last Updated:
-#   2026-06-01
+#   2026-06-12
 #
 # Authoring Agent:
 #   OpenAI GPT-5.5
@@ -28,7 +28,7 @@ data_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 1.8.0
+    spec_version: 2.0.0
     document_type: data_specification
     depends_on:
       - 01_overall_spec.yaml
@@ -45,6 +45,18 @@ data_spec:
     protocol: HTTPS
     auth: basic_auth
     common_api: true
+
+    environment_implementation:
+      development:
+        status: implemented
+        api_runtime: django_rest_framework
+        storage: sqlite
+        processing: synchronous
+      production:
+        status: pending
+        api_runtime: aws_lambda
+        storage: timescaledb
+        note: Lambda実装、TimescaleDB接続、非同期処理および本番向け閾値処理は今後実装する。
 
     request_format:
       - application/json
@@ -88,21 +100,29 @@ data_spec:
         - header_exists
         - no_header
       mapping: device_setting_defined
+      header_exists_format: timestamp列とデバイスカラム名をヘッダーに含む2行構成
+      no_header_format: timestampの後にdisplay_order順のデバイスカラム値を並べる1行構成
       note: CSVの項目順・カラム対応はデバイス設定のカラム定義に従う
 
-    processing_flow:
+    development_processing_flow:
       - authenticate_device
       - identify_device
       - resolve_company_and_site_from_device
       - store_raw_data_immediately
-      - enqueue_parse_job
-      - parse_data
+      - parse_data_synchronously
       - validate_data
-      - store_parsed_data
+      - store_parsed_data_in_sqlite
       - apply_column_weight
-      - threshold_check_by_device_column
       - update_latest_value
       - update_device_status
+
+    production_processing_flow:
+      status: pending
+      planned_steps:
+        - receive_with_aws_lambda
+        - store_in_timescaledb
+        - enqueue_parse_job
+        - threshold_check_by_device_column
 
     invalid_data_policy:
       accept: true
@@ -233,26 +253,27 @@ data_spec:
           - site_id
           - device_id
           - received_at
+          - content_type
           - payload
           - is_error
           - error_message
 
       parsed_data:
         purpose: 正規化済み時系列データ
-        table_type: hypertable
+        development_table_type: sqlite_normal_table
+        production_table_type: timescaledb_hypertable_pending
         time_column: device_timestamp
         fields:
           - id
           - company_id
           - site_id
           - device_id
+          - raw_data_id
           - device_timestamp
           - server_timestamp
           - column_name
-          - raw_value_number
-          - display_value_number
-          - value_string
-          - value_boolean
+          - raw_value
+          - display_value
           - is_valid
           - error_message
 

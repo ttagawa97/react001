@@ -11,10 +11,10 @@
 #   Request/Response形式、権限制御を定義する。
 #
 # Spec Version:
-#   1.9.0
+#   2.0.0
 #
 # Last Updated:
-#   2026-06-01
+#   2026-06-12
 #
 # Authoring Agent:
 #   OpenAI GPT-5.5
@@ -29,7 +29,7 @@ api_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 1.9.0
+    spec_version: 2.0.0
     document_type: api_specification
     base_path: /api/v1
 
@@ -104,12 +104,42 @@ api_spec:
       - application/json
       - text/csv
 
-    behavior:
-      - authenticate_device
-      - identify_device
-      - store_raw_data_immediately
-      - enqueue_parse_job
-      - return_accepted_response
+    authentication:
+      type: basic_auth
+      username: device.auth_id
+      password: device.auth_password
+
+    response:
+      status: 202
+      fields:
+        accepted: boolean
+        raw_data_id: integer
+        device_id: string
+        stored_values: integer
+        received_at: datetime
+
+    environment_implementation:
+      development:
+        status: implemented
+        runtime: django_rest_framework
+        api_location: same_backend_api
+        database: sqlite
+        processing: synchronous
+        behavior:
+          - authenticate_device
+          - identify_device
+          - store_raw_data
+          - parse_and_validate_data
+          - store_parsed_data
+          - update_latest_value
+          - update_device_status
+          - return_accepted_response
+      production:
+        status: pending
+        runtime: aws_lambda
+        database: timescaledb
+        processing: pending
+        note: AWS Lambda用プログラムおよびTimescaleDB書き込み処理は本改修の対象外とする。
 
     error_policy:
       invalid_data: accept_and_record

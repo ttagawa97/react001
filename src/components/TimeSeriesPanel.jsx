@@ -1,23 +1,154 @@
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+} from 'chart.js'
+import { Line } from 'react-chartjs-2'
 import { getDisplayValue, getDisplayValues, getRawValues } from '../services/domain'
 import { PanelHeader } from './Toolbar'
 
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+)
+
+function formatAxisTime(timestamp) {
+  if (!timestamp) return '-'
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return timestamp
+  return new Intl.DateTimeFormat('ja-JP', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
+function thresholdDataset(label, value, color, pointCount) {
+  if (typeof value !== 'number') return null
+  return {
+    label,
+    data: Array(pointCount).fill(value),
+    borderColor: color,
+    borderDash: [7, 6],
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    fill: false,
+    tension: 0,
+  }
+}
+
 export function TimeSeriesPanel({ column }) {
   const rawValues = getRawValues(column)
-  const values = getDisplayValues(column)
-  const primaryThreshold = column.thresholds[0]
-  const upper = typeof primaryThreshold?.upper === 'number' ? getDisplayValue(column, primaryThreshold.upper) : primaryThreshold?.upper
-  const lower = typeof primaryThreshold?.lower === 'number' ? getDisplayValue(column, primaryThreshold.lower) : primaryThreshold?.lower
-  const numericValues = [upper, lower, ...values].filter((value) => typeof value === 'number')
-  const minValue = Math.min(...numericValues)
-  const maxValue = Math.max(...numericValues)
-  const padding = Math.max((maxValue - minValue) * 0.18, 1)
-  const chartMin = minValue - padding
-  const chartMax = maxValue + padding
-  const range = chartMax - chartMin || 1
+  const values = getDisplayValues(column).filter((value) => typeof value === 'number' && Number.isFinite(value))
+  if (values.length === 0) return null
 
-  const toX = (index) => 40 + (index * 520) / (values.length - 1)
-  const toY = (value) => 210 - ((value - chartMin) / range) * 160
-  const points = values.map((value, index) => `${toX(index)},${toY(value)}`).join(' ')
+  const primaryThreshold = column.thresholds[0]
+  const upper = typeof primaryThreshold?.upper === 'number'
+    ? getDisplayValue(column, primaryThreshold.upper)
+    : primaryThreshold?.upper
+  const lower = typeof primaryThreshold?.lower === 'number'
+    ? getDisplayValue(column, primaryThreshold.lower)
+    : primaryThreshold?.lower
+  const labels = values.map((_, index) => formatAxisTime(column.timestamps?.[index]))
+  const pointExceeded = (value) => (
+    (typeof upper === 'number' && value > upper) ||
+    (typeof lower === 'number' && value < lower)
+  )
+  const thresholdDatasets = [
+    thresholdDataset('上限値', upper, '#dc2626', values.length),
+    thresholdDataset('下限値', lower, '#2563eb', values.length),
+  ].filter(Boolean)
+  const data = {
+    labels,
+    datasets: [
+      {
+        label: column.label,
+        data: values,
+        borderColor: '#15916f',
+        backgroundColor: 'rgba(21, 145, 111, 0.1)',
+        borderWidth: 3,
+        pointBackgroundColor: values.map((value) => pointExceeded(value) ? '#dc2626' : '#ffffff'),
+        pointBorderColor: values.map((value) => pointExceeded(value) ? '#991b1b' : '#15916f'),
+        pointBorderWidth: 2,
+        pointRadius: values.map((value) => pointExceeded(value) ? 5 : 3.5),
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.25,
+      },
+      ...thresholdDatasets,
+    ],
+  }
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      intersect: false,
+      mode: 'index',
+    },
+    plugins: {
+      legend: {
+        display: thresholdDatasets.length > 0,
+        position: 'top',
+        labels: {
+          boxWidth: 24,
+          color: '#475569',
+          filter: (item) => item.datasetIndex > 0,
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => `${context.dataset.label}: ${context.formattedValue}${column.unit ? ` ${column.unit}` : ''}`,
+          afterBody: (items) => {
+            const index = items[0]?.dataIndex
+            if (index === undefined) return []
+            return `受信生値: ${rawValues[index]}${column.unit ? ` ${column.unit}` : ''}`
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: '日時',
+          color: '#334155',
+          font: { weight: 'bold' },
+        },
+        ticks: {
+          autoSkip: true,
+          color: '#475569',
+          maxRotation: 0,
+          maxTicksLimit: 6,
+        },
+        grid: { color: '#e2e8f0' },
+      },
+      y: {
+        title: {
+          display: true,
+          text: column.unit || column.label,
+          color: '#334155',
+          font: { weight: 'bold' },
+        },
+        ticks: { color: '#475569' },
+        grid: { color: '#e2e8f0' },
+      },
+    },
+  }
   const lastValue = values.at(-1)
 
   return (
@@ -27,37 +158,7 @@ export function TimeSeriesPanel({ column }) {
         detail={`型: ${column.type} / 重み: ${column.weight ?? 1} / 表示値 = 受信値 × 重み`}
       />
       <div className="line-chart-frame">
-        <svg viewBox="0 0 600 240" role="img" aria-label={`${column.label} の時系列グラフ`}>
-          <g className="grid-lines">
-            {[50, 90, 130, 170, 210].map((y) => (
-              <line key={y} x1="40" x2="560" y1={y} y2={y} />
-            ))}
-          </g>
-          {typeof upper === 'number' && (
-            <line className="threshold-line upper" x1="40" x2="560" y1={toY(upper)} y2={toY(upper)} />
-          )}
-          {typeof lower === 'number' && (
-            <line className="threshold-line lower" x1="40" x2="560" y1={toY(lower)} y2={toY(lower)} />
-          )}
-          <polyline className="series-line" points={points} />
-          {values.map((value, index) => {
-            const exceeded =
-              (typeof upper === 'number' && value > upper) ||
-              (typeof lower === 'number' && value < lower)
-
-            return (
-              <circle
-                className={exceeded ? 'data-point exceeded' : 'data-point'}
-                cx={toX(index)}
-                cy={toY(value)}
-                key={`${column.key}-${index}`}
-                r={exceeded ? 5 : 3.5}
-              />
-            )
-          })}
-          <text className="axis-label" x="40" y="228">-24h</text>
-          <text className="axis-label" x="520" y="228">now</text>
-        </svg>
+        <Line data={data} options={options} aria-label={`${column.label} の時系列グラフ`} />
       </div>
       <div className="graph-meta">
         <span>最新値: {lastValue} {column.unit}</span>

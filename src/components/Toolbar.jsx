@@ -1,11 +1,11 @@
-export function Toolbar({ title, action, detail = 'モックデータで画面構成を確認できます。', onAction }) {
+export function Toolbar({ title, action, detail = 'モックデータで画面構成を確認できます。', onAction, actionDisabled = false }) {
   return (
     <div className="toolbar">
       <div>
         <h2>{title}</h2>
         <p>{detail}</p>
       </div>
-      <button type="button" onClick={onAction}>{action}</button>
+      <button type="button" disabled={actionDisabled} onClick={onAction}>{action}</button>
     </div>
   )
 }

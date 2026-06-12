@@ -1,13 +1,93 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../api'
 import { CommonFilter } from '../components/CommonFilter'
+import { ApiErrorBanner, LoadingStrip } from '../components/Feedback'
 import { StatusBadge } from '../components/Badges'
 import { FilterPanel, InputField, SelectField } from '../components/FormFields'
 import { TimeSeriesPanel } from '../components/TimeSeriesPanel'
 import { Toolbar } from '../components/Toolbar'
-import { getCompany, getLatestValues, getSite } from '../services/domain'
+import { applyGraphData, formatApiError, getCompany, getLatestValues, getSite } from '../services/domain'
+
+const PERIOD_MILLISECONDS = {
+  '1m': 60 * 1000,
+  '10m': 10 * 60 * 1000,
+  '1h': 60 * 60 * 1000,
+  '12h': 12 * 60 * 60 * 1000,
+  '24h': 24 * 60 * 60 * 1000,
+  '3d': 3 * 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '2w': 14 * 24 * 60 * 60 * 1000,
+  '1month': 30 * 24 * 60 * 60 * 1000,
+  '3months': 90 * 24 * 60 * 60 * 1000,
+  '6months': 180 * 24 * 60 * 60 * 1000,
+  '1year': 365 * 24 * 60 * 60 * 1000,
+}
+const DEVICE_CLOCK_SKEW_MILLISECONDS = 15 * 60 * 1000
+
+function getRangeParams(period, startDatetime, endDatetime) {
+  if (period === 'custom') {
+    return {
+      from: startDatetime ? new Date(startDatetime).toISOString() : undefined,
+      to: endDatetime ? new Date(endDatetime).toISOString() : undefined,
+    }
+  }
+
+  const to = new Date()
+  return {
+    from: new Date(to.getTime() - PERIOD_MILLISECONDS[period]).toISOString(),
+    to: new Date(to.getTime() + DEVICE_CLOCK_SKEW_MILLISECONDS).toISOString(),
+  }
+}
 
 export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack }) {
   const [period, setPeriod] = useState('24h')
+  const [startDatetime, setStartDatetime] = useState('')
+  const [endDatetime, setEndDatetime] = useState('')
+  const [graphColumns, setGraphColumns] = useState(device?.columns ?? [])
+  const [isLoading, setIsLoading] = useState(Boolean(device))
+  const [error, setError] = useState('')
+
+  async function loadGraphData() {
+    if (!device) return
+
+    setIsLoading(true)
+    setError('')
+    try {
+      const graphData = await api.getDeviceGraph(
+        device.apiId ?? device.id,
+        getRangeParams(period, startDatetime, endDatetime),
+      )
+      setGraphColumns(applyGraphData(device, graphData))
+    } catch (loadError) {
+      setGraphColumns(device.columns ?? [])
+      setError(formatApiError(loadError))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!device) return undefined
+
+    let isCurrent = true
+    api.getDeviceGraph(
+      device.apiId ?? device.id,
+      getRangeParams('24h', '', ''),
+    ).then((graphData) => {
+      if (isCurrent) setGraphColumns(applyGraphData(device, graphData))
+    }).catch((loadError) => {
+      if (!isCurrent) return
+      setGraphColumns(device.columns ?? [])
+      setError(formatApiError(loadError))
+    }).finally(() => {
+      if (isCurrent) setIsLoading(false)
+    })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [device])
+
   if (!device) {
     return (
       <div className="screen-stack">
@@ -28,7 +108,7 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </div>
         <div className="toolbar-actions">
           <button type="button" onClick={onBack}>一覧へ戻る</button>
-          <button type="button">表示</button>
+          <button type="button" disabled={isLoading} onClick={loadGraphData}>表示</button>
         </div>
       </div>
 
@@ -52,11 +132,14 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </SelectField>
         {period === 'custom' && (
           <>
-            <InputField label="開始日時" type="datetime-local" defaultValue="2026-05-28T00:00" />
-            <InputField label="終了日時" type="datetime-local" defaultValue="2026-05-28T23:59" />
+            <InputField label="開始日時" type="datetime-local" value={startDatetime} onChange={setStartDatetime} />
+            <InputField label="終了日時" type="datetime-local" value={endDatetime} onChange={setEndDatetime} />
           </>
         )}
       </FilterPanel>
+
+      {error && <ApiErrorBanner message={error} onClose={() => setError('')} />}
+      {isLoading && <LoadingStrip>グラフデータを取得しています...</LoadingStrip>}
 
       <section className="graph-summary">
         <article className="metric-card compact">
@@ -66,7 +149,7 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </article>
         <article className="metric-card compact">
           <span>最新値</span>
-          <strong>{getLatestValues(device)}</strong>
+          <strong>{getLatestValues({ ...device, columns: graphColumns })}</strong>
           <p>GET /devices/{device.id}/graph</p>
         </article>
         <article className="metric-card compact">
@@ -77,9 +160,12 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
       </section>
 
       <section className="graph-stack">
-        {device.columns.map((column) => (
+        {graphColumns.map((column) => (
           <TimeSeriesPanel column={column} key={column.key} />
         ))}
+        {!isLoading && graphColumns.every((column) => column.values.length === 0) && (
+          <article className="panel graph-panel empty-state">指定期間のデータはありません。</article>
+        )}
       </section>
     </div>
   )

@@ -13,11 +13,15 @@ export function SelectField({ label, value, onChange, children, disabled = false
   )
 }
 
-export function InputField({ label, type, defaultValue, disabled = false, name }) {
+export function InputField({ label, type, defaultValue, value, onChange, disabled = false, name }) {
+  const controlledProps = value === undefined
+    ? { defaultValue }
+    : { value, onChange: (event) => onChange?.(event.target.value) }
+
   return (
     <label>
       <span>{label}</span>
-      <input disabled={disabled} name={name} type={type} defaultValue={defaultValue} />
+      <input disabled={disabled} name={name} type={type} {...controlledProps} />
     </label>
   )
 }

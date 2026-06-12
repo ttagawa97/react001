@@ -60,7 +60,26 @@ export function normalizeColumn(column) {
     order: column.order ?? column.display_order ?? 1,
     thresholds: column.thresholds ?? [],
     values: column.values ?? [],
+    timestamps: column.timestamps ?? [],
   }
+}
+
+function normalizeLatestValues(value) {
+  const entries = Array.isArray(value)
+    ? value
+    : Object.entries(value ?? {}).map(([columnName, columnValue]) => (
+      typeof columnValue === 'object' && columnValue !== null
+        ? { column_name: columnName, ...columnValue }
+        : { column_name: columnName, value: columnValue }
+    ))
+
+  return entries.map((entry) => ({
+    columnKey: entry.columnKey ?? entry.column_name ?? entry.key,
+    displayName: entry.displayName ?? entry.display_name,
+    unit: entry.unit ?? '',
+    rawValue: entry.rawValue ?? entry.raw_value ?? entry.value,
+    displayValue: entry.displayValue ?? entry.display_value,
+  })).filter((entry) => entry.columnKey)
 }
 
 function normalizeAlertStatus(value) {
@@ -98,6 +117,7 @@ export function normalizeDevice(device) {
     latestReceivedAt: device.latestReceivedAt ?? device.latest_received_at ?? '-',
     alert: normalizeAlertStatus(device.alert ?? device.alert_status),
     columns,
+    latestValues: normalizeLatestValues(device.latestValues ?? device.latest_values),
   }
 }
 
@@ -118,6 +138,7 @@ function mergeLatestDeviceData(sourceDevices, latestDevices) {
       status: latest.status,
       latestReceivedAt: latest.latestReceivedAt,
       alert: latest.alert,
+      latestValues: latest.latestValues,
     }
   })
 }
@@ -200,6 +221,12 @@ export async function loadInitialData(role = 'system_admin') {
   replaceCollection(auditLogs, asArray(auditLogData).map(normalizeAuditLog))
 }
 
+export async function refreshLatestDevices(params) {
+  const latestDeviceData = await api.listLatestDevices(params)
+  const normalizedLatestDevices = asArray(latestDeviceData).map(normalizeDevice)
+  replaceCollection(devices, mergeLatestDeviceData(devices, normalizedLatestDevices))
+}
+
 export function formatApiError(error) {
   if (error instanceof ApiError) return error.message
   return error?.message ?? 'API通信に失敗しました'
@@ -266,6 +293,21 @@ export function getDisplayValue(column, rawValue) {
 }
 
 export function getLatestValues(device) {
+  if (device.latestValues?.length > 0) {
+    return device.latestValues.map((latestValue) => {
+      const column = device.columns.find((item) => item.key === latestValue.columnKey)
+      const numericRawValue = column?.type === 'number' && latestValue.rawValue !== ''
+        ? Number(latestValue.rawValue)
+        : latestValue.rawValue
+      const normalizedRawValue = Number.isNaN(numericRawValue) ? latestValue.rawValue : numericRawValue
+      const value = latestValue.displayValue ?? getDisplayValue(column ?? {}, normalizedRawValue)
+      if (value === undefined || value === null) return null
+      const label = column?.label ?? latestValue.displayName ?? latestValue.columnKey
+      const unit = column?.unit ?? latestValue.unit
+      return `${label} ${value}${unit ? ` ${unit}` : ''}`
+    }).filter(Boolean).join(' / ') || '-'
+  }
+
   const latestValues = device.columns
     .map((column) => {
       const latest = getDisplayValue(column, column.values.at(-1))
@@ -284,6 +326,79 @@ export function getRawValues(column) {
 
 export function getDisplayValues(column) {
   return column.values.map((value) => getDisplayValue(column, value))
+}
+
+function getGraphPointColumnKey(point) {
+  return point.column_name ?? point.columnName ?? point.key
+}
+
+function getGraphPointRawValue(point, column) {
+  const rawValue = point.raw_value ?? point.rawValue ?? point.value_number ?? point.value
+  if (rawValue !== undefined && rawValue !== null && rawValue !== '') return rawValue
+
+  const displayValue = point.display_value ?? point.displayValue
+  if (displayValue === undefined || displayValue === null || displayValue === '') return undefined
+  if (column?.type === 'number' && Number(column.weight ?? 1) !== 0) {
+    return Number(displayValue) / Number(column.weight ?? 1)
+  }
+  return displayValue
+}
+
+function normalizeGraphValue(value, column) {
+  if (column?.type === 'number') {
+    const numericValue = Number(value)
+    return Number.isFinite(numericValue) ? numericValue : undefined
+  }
+  return value
+}
+
+export function applyGraphData(device, graphData) {
+  const responsePoints = asArray(graphData?.points ?? graphData)
+  const pointsByColumn = new Map()
+
+  responsePoints.forEach((entry) => {
+    const nestedPoints = asArray(entry?.points)
+    if (nestedPoints.length > 0) {
+      const entryColumnKey = getGraphPointColumnKey(entry)
+      nestedPoints.forEach((point) => {
+        const columnKey = getGraphPointColumnKey(point) ?? entryColumnKey
+        if (!columnKey || point.is_valid === false || point.isValid === false) return
+        const current = pointsByColumn.get(columnKey) ?? []
+        current.push(point)
+        pointsByColumn.set(columnKey, current)
+      })
+      return
+    }
+
+    const columnKey = getGraphPointColumnKey(entry)
+    if (!columnKey || entry.is_valid === false || entry.isValid === false) return
+    const current = pointsByColumn.get(columnKey) ?? []
+    current.push(entry)
+    pointsByColumn.set(columnKey, current)
+  })
+
+  const knownColumns = new Map(device.columns.map((column) => [column.key, column]))
+  const columnKeys = new Set([...knownColumns.keys(), ...pointsByColumn.keys()])
+
+  return [...columnKeys].map((columnKey, index) => {
+    const column = knownColumns.get(columnKey) ?? normalizeColumn({
+      column_name: columnKey,
+      display_name: columnKey,
+      display_order: index + 1,
+    })
+    const normalizedPoints = (pointsByColumn.get(columnKey) ?? [])
+      .map((point) => ({
+        value: normalizeGraphValue(getGraphPointRawValue(point, column), column),
+        timestamp: point.device_timestamp ?? point.deviceTimestamp ?? point.timestamp,
+      }))
+      .filter((point) => point.value !== undefined)
+
+    return {
+      ...column,
+      values: normalizedPoints.map((point) => point.value),
+      timestamps: normalizedPoints.map((point) => point.timestamp),
+    }
+  }).sort((left, right) => left.order - right.order)
 }
 
 export function getThresholdRows(sourceDevices = devices) {
