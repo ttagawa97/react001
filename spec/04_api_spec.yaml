@@ -597,6 +597,13 @@ api_spec:
         from: optional_datetime
         to: optional_datetime
         column_name: optional_string
+      query_rules:
+        preset_period_from: current_datetime_minus_selected_period
+        preset_period_to: current_datetime
+        time_series_from: selected_start_date_start_of_day
+        time_series_to: selected_end_date_end_of_day
+        time_series_reload_trigger: click_display_button
+        range_inclusion: from_and_to_inclusive
       response:
         device_id: string
         points:
@@ -619,6 +626,9 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+        - general_user
+      purpose: 閾値設定画面およびデバイスグラフの閾値線表示に使用する読取API
+      authorization_rule: general_userは自身の企業・現場・デバイスに属する閾値のみ参照可能
       query:
         company_id: optional_integer
         site_id: optional_integer
@@ -641,6 +651,8 @@ api_spec:
         current_status: normal_or_alert
         created_at: datetime
         updated_at: datetime
+      usage:
+        device_graph: column_nameでデバイスカラムへ紐付け、上限値は赤、下限値は青の点線でグラフ表示する
 
     - id: create_threshold
       method: POST

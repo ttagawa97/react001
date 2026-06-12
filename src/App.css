@@ -946,6 +946,25 @@ tbody tr:last-child td {
   text-align: right;
 }
 
+.time-series-table {
+  max-height: 736px;
+  overflow-y: auto;
+}
+
+.time-series-table th,
+.time-series-table td {
+  box-sizing: border-box;
+  height: 46px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.time-series-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 .filter-panel {
   min-height: 74px;
   padding: 16px 18px;
@@ -986,6 +1005,23 @@ tbody tr:last-child td {
   background: #eef2f6;
   color: #64748b;
   cursor: not-allowed;
+}
+
+.filter-submit-button {
+  height: 38px;
+  min-width: 88px;
+  border: 1px solid #0f766e;
+  border-radius: 6px;
+  background: #0f766e;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  padding: 0 18px;
+}
+
+.filter-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .filter-note {

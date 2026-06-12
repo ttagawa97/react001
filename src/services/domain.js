@@ -50,6 +50,22 @@ export function normalizeSite(site) {
   }
 }
 
+function normalizeThresholdLimit(value) {
+  if (value === undefined || value === null || value === '') return undefined
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : undefined
+}
+
+function normalizeColumnThreshold(threshold) {
+  return {
+    ...threshold,
+    id: normalizeId(threshold.id ?? threshold.threshold_id),
+    name: threshold.name ?? threshold.threshold_name ?? '閾値',
+    lower: normalizeThresholdLimit(threshold.lower ?? threshold.lower_limit),
+    upper: normalizeThresholdLimit(threshold.upper ?? threshold.upper_limit),
+  }
+}
+
 export function normalizeColumn(column) {
   return {
     key: column.key ?? column.column_name,
@@ -58,7 +74,7 @@ export function normalizeColumn(column) {
     type: column.type ?? column.data_type ?? 'number',
     weight: Number(column.weight ?? 1),
     order: column.order ?? column.display_order ?? 1,
-    thresholds: column.thresholds ?? [],
+    thresholds: asArray(column.thresholds).map(normalizeColumnThreshold),
     values: column.values ?? [],
     timestamps: column.timestamps ?? [],
     serverTimestamps: column.serverTimestamps ?? column.server_timestamps ?? [],
@@ -179,11 +195,39 @@ export function normalizeThreshold(threshold) {
     deviceApiId,
     columnKey: threshold.columnKey ?? threshold.column_name,
     name: threshold.name ?? threshold.threshold_name,
-    lower: threshold.lower ?? threshold.lower_limit,
-    upper: threshold.upper ?? threshold.upper_limit,
+    lower: normalizeThresholdLimit(threshold.lower ?? threshold.lower_limit),
+    upper: normalizeThresholdLimit(threshold.upper ?? threshold.upper_limit),
     notificationEmails: threshold.notificationEmails ?? threshold.notification_emails ?? '',
     suppress: threshold.suppress ?? threshold.suppress_minutes,
   }
+}
+
+function attachThresholdsToDevices(sourceDevices, sourceThresholds) {
+  return sourceDevices.map((device) => ({
+    ...device,
+    columns: device.columns.map((column) => {
+      const matchingThresholds = sourceThresholds.filter((threshold) => (
+        (
+          threshold.deviceId === device.id ||
+          threshold.deviceId === device.apiId ||
+          threshold.deviceApiId === device.id ||
+          threshold.deviceApiId === device.apiId
+        ) &&
+        threshold.columnKey === column.key
+      ))
+      if (matchingThresholds.length === 0) return column
+
+      const thresholdById = new Map(column.thresholds.map((threshold) => [threshold.id, threshold]))
+      matchingThresholds.forEach((threshold) => thresholdById.set(threshold.id, threshold))
+      return { ...column, thresholds: [...thresholdById.values()] }
+    }),
+  }))
+}
+
+export function applyThresholdData(device, thresholdData) {
+  if (!device) return device
+  const normalizedThresholds = asArray(thresholdData).map(normalizeThreshold)
+  return attachThresholdsToDevices([device], normalizedThresholds)[0]
 }
 
 async function optionalData(request, fallback = []) {
@@ -215,10 +259,14 @@ export async function loadInitialData(role = 'system_admin') {
 
   const normalizedDevices = asArray(deviceData).map(normalizeDevice)
   const normalizedLatestDevices = asArray(latestDeviceData).map(normalizeDevice)
+  const normalizedThresholds = asArray(thresholdData).map(normalizeThreshold)
 
-  replaceCollection(devices, mergeLatestDeviceData(normalizedDevices, normalizedLatestDevices))
+  replaceCollection(devices, attachThresholdsToDevices(
+    mergeLatestDeviceData(normalizedDevices, normalizedLatestDevices),
+    normalizedThresholds,
+  ))
   replaceCollection(users, asArray(userData).map(normalizeUser))
-  replaceCollection(thresholds, asArray(thresholdData).map(normalizeThreshold))
+  replaceCollection(thresholds, normalizedThresholds)
   replaceCollection(auditLogs, asArray(auditLogData).map(normalizeAuditLog))
 }
 

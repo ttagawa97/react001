@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { CommonFilter } from '../components/CommonFilter'
 import { ApiErrorBanner, LoadingStrip } from '../components/Feedback'
@@ -7,7 +7,14 @@ import { FilterPanel, InputField, SelectField } from '../components/FormFields'
 import { TimeSeriesDataTable } from '../components/TimeSeriesDataTable'
 import { TimeSeriesPanel } from '../components/TimeSeriesPanel'
 import { Toolbar } from '../components/Toolbar'
-import { applyGraphData, formatApiError, getCompany, getLatestValues, getSite } from '../services/domain'
+import {
+  applyGraphData,
+  applyThresholdData,
+  formatApiError,
+  getCompany,
+  getLatestValues,
+  getSite,
+} from '../services/domain'
 
 const PERIOD_MILLISECONDS = {
   '1m': 60 * 1000,
@@ -23,8 +30,6 @@ const PERIOD_MILLISECONDS = {
   '6months': 180 * 24 * 60 * 60 * 1000,
   '1year': 365 * 24 * 60 * 60 * 1000,
 }
-const DEVICE_CLOCK_SKEW_MILLISECONDS = 15 * 60 * 1000
-
 function getTodayDate() {
   const now = new Date()
   const offsetDate = new Date(now.getTime() - now.getTimezoneOffset() * 60 * 1000)
@@ -51,7 +56,7 @@ function getRangeParams(period, startDatetime, endDatetime) {
   const to = new Date()
   return {
     from: new Date(to.getTime() - PERIOD_MILLISECONDS[period]).toISOString(),
-    to: new Date(to.getTime() + DEVICE_CLOCK_SKEW_MILLISECONDS).toISOString(),
+    to: to.toISOString(),
   }
 }
 
@@ -68,24 +73,50 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
   const [hasLoadedTimeSeries, setHasLoadedTimeSeries] = useState(false)
   const [isLoading, setIsLoading] = useState(Boolean(device))
   const [error, setError] = useState('')
+  const graphRequestIdRef = useRef(0)
 
-  async function loadGraphData() {
+  const fetchGraphColumns = useCallback(async (rangeParams) => {
+    const [graphData, thresholdData] = await Promise.all([
+      api.getDeviceGraph(device.apiId ?? device.id, rangeParams),
+      api.listThresholds({
+        company_id: device.companyId,
+        site_id: device.siteId,
+      }).catch(() => []),
+    ])
+    const deviceWithThresholds = applyThresholdData(device, thresholdData)
+    return applyGraphData(deviceWithThresholds, graphData)
+  }, [device])
+
+  async function loadGraphData(
+    selectedPeriod = period,
+    selectedStartDatetime = startDatetime,
+    selectedEndDatetime = endDatetime,
+  ) {
     if (!device) return
 
+    const requestId = ++graphRequestIdRef.current
     setIsLoading(true)
     setError('')
     try {
-      const graphData = await api.getDeviceGraph(
-        device.apiId ?? device.id,
-        getRangeParams(period, startDatetime, endDatetime),
+      const columns = await fetchGraphColumns(
+        getRangeParams(selectedPeriod, selectedStartDatetime, selectedEndDatetime),
       )
-      setGraphColumns(applyGraphData(device, graphData))
+      if (requestId === graphRequestIdRef.current) {
+        setGraphColumns(columns)
+      }
     } catch (loadError) {
-      setGraphColumns(device.columns ?? [])
-      setError(formatApiError(loadError))
+      if (requestId === graphRequestIdRef.current) {
+        setGraphColumns(device.columns ?? [])
+        setError(formatApiError(loadError))
+      }
     } finally {
-      setIsLoading(false)
+      if (requestId === graphRequestIdRef.current) setIsLoading(false)
     }
+  }
+
+  function changeGraphPeriod(selectedPeriod) {
+    setPeriod(selectedPeriod)
+    if (selectedPeriod !== 'custom') loadGraphData(selectedPeriod, '', '')
   }
 
   async function loadTimeSeriesData() {
@@ -125,23 +156,25 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
     if (!device) return undefined
 
     let isCurrent = true
-    api.getDeviceGraph(
-      device.apiId ?? device.id,
+    const requestId = ++graphRequestIdRef.current
+    fetchGraphColumns(
       getRangeParams('24h', '', ''),
-    ).then((graphData) => {
-      if (isCurrent) setGraphColumns(applyGraphData(device, graphData))
+    ).then((columns) => {
+      if (isCurrent && requestId === graphRequestIdRef.current) {
+        setGraphColumns(columns)
+      }
     }).catch((loadError) => {
-      if (!isCurrent) return
+      if (!isCurrent || requestId !== graphRequestIdRef.current) return
       setGraphColumns(device.columns ?? [])
       setError(formatApiError(loadError))
     }).finally(() => {
-      if (isCurrent) setIsLoading(false)
+      if (isCurrent && requestId === graphRequestIdRef.current) setIsLoading(false)
     })
 
     return () => {
       isCurrent = false
     }
-  }, [device])
+  }, [device, fetchGraphColumns])
 
   if (!device) {
     return (
@@ -163,13 +196,11 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </div>
         <div className="toolbar-actions">
           <button type="button" onClick={onBack}>一覧へ戻る</button>
-          <button
-            type="button"
-            disabled={isLoading}
-            onClick={activeTab === 'graph' ? loadGraphData : loadTimeSeriesData}
-          >
-            表示
-          </button>
+          {activeTab === 'graph' && (
+            <button type="button" disabled={isLoading} onClick={() => loadGraphData()}>
+              表示
+            </button>
+          )}
         </div>
       </div>
 
@@ -216,7 +247,7 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
 
       {activeTab === 'graph' ? (
         <FilterPanel>
-          <SelectField label="表示期間" value={period} onChange={setPeriod}>
+          <SelectField label="表示期間" value={period} onChange={changeGraphPeriod}>
             <option value="1m">1分</option>
             <option value="10m">10分</option>
             <option value="1h">1時間</option>
@@ -242,6 +273,14 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         <FilterPanel>
           <InputField label="開始日" type="date" value={startDate} onChange={setStartDate} />
           <InputField label="終了日" type="date" value={endDate} onChange={setEndDate} />
+          <button
+            className="filter-submit-button"
+            type="button"
+            disabled={isLoading}
+            onClick={loadTimeSeriesData}
+          >
+            表示
+          </button>
         </FilterPanel>
       )}
 

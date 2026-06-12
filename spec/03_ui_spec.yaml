@@ -336,6 +336,10 @@ ui_spec:
               type: Select
               label: 表示期間
               default: 24h
+              change_action: reload_graph_immediately
+              range_rule:
+                from: current_datetime_minus_selected_period
+                to: current_datetime
               options:
                 - { label: 1分, value: 1m }
                 - { label: 10分, value: 10m }
@@ -354,12 +358,14 @@ ui_spec:
             - id: start_datetime
               type: Input
               input_type: datetime-local
+              apply_action: click_display
               visible_when:
                 period_preset: custom
 
             - id: end_datetime
               type: Input
               input_type: datetime-local
+              apply_action: click_display
               visible_when:
                 period_preset: custom
 
@@ -374,6 +380,10 @@ ui_spec:
             y_axis_auto_scale: true
             show_unit_on_y_axis: true
             show_threshold_lines: true
+            upper_threshold_line_color: red
+            lower_threshold_line_color: blue
+            threshold_line_style: dashed
+            show_all_column_thresholds: true
             show_threshold_exceeded_points: true
             show_invalid_data: false
 
@@ -387,11 +397,20 @@ ui_spec:
               input_type: date
               label: 開始日
               default: today
+              reload_on_change: false
             - id: end_date
               type: Input
               input_type: date
               label: 終了日
               default: today
+              reload_on_change: false
+            - id: display_button
+              type: Button
+              label: 表示
+              action: reload_time_series
+              request_range:
+                from: start_date_start_of_day
+                to: end_date_end_of_day
 
         - id: time_series_area
           type: Table
@@ -399,6 +418,9 @@ ui_spec:
             display_tabs: time_series
           datasource: GET /devices/{device_id}/graph
           default_order: device_timestamp_desc
+          visible_record_count: 15
+          overflow_behavior: vertical_scroll
+          sticky_header: true
           columns:
             - device_timestamp
             - column_name

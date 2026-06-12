@@ -10,7 +10,7 @@ import {
   Tooltip,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { getDisplayValue, getDisplayValues, getRawValues } from '../services/domain'
+import { getDisplayValues, getRawValues } from '../services/domain'
 import { PanelHeader } from './Toolbar'
 
 ChartJS.register(
@@ -57,22 +57,26 @@ export function TimeSeriesPanel({ column }) {
   const values = getDisplayValues(column).filter((value) => typeof value === 'number' && Number.isFinite(value))
   if (values.length === 0) return null
 
-  const primaryThreshold = column.thresholds[0]
-  const upper = typeof primaryThreshold?.upper === 'number'
-    ? getDisplayValue(column, primaryThreshold.upper)
-    : primaryThreshold?.upper
-  const lower = typeof primaryThreshold?.lower === 'number'
-    ? getDisplayValue(column, primaryThreshold.lower)
-    : primaryThreshold?.lower
+  const thresholds = column.thresholds.flatMap((threshold, index) => {
+    const name = threshold.name || `閾値${index + 1}`
+    return [
+      { label: `${name} 上限`, value: threshold.upper, color: '#dc2626' },
+      { label: `${name} 下限`, value: threshold.lower, color: '#2563eb' },
+    ].filter((item) => typeof item.value === 'number' && Number.isFinite(item.value))
+  })
   const labels = values.map((_, index) => formatAxisTime(column.timestamps?.[index]))
-  const pointExceeded = (value) => (
-    (typeof upper === 'number' && value > upper) ||
-    (typeof lower === 'number' && value < lower)
-  )
-  const thresholdDatasets = [
-    thresholdDataset('上限値', upper, '#dc2626', values.length),
-    thresholdDataset('下限値', lower, '#2563eb', values.length),
-  ].filter(Boolean)
+  const pointExceeded = (value) => column.thresholds.some((threshold) => (
+    (typeof threshold.upper === 'number' && value > threshold.upper) ||
+    (typeof threshold.lower === 'number' && value < threshold.lower)
+  ))
+  const thresholdDatasets = thresholds
+    .map((threshold) => thresholdDataset(
+      threshold.label,
+      threshold.value,
+      threshold.color,
+      values.length,
+    ))
+    .filter(Boolean)
   const data = {
     labels,
     datasets: [
