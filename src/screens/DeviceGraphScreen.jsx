@@ -4,6 +4,7 @@ import { CommonFilter } from '../components/CommonFilter'
 import { ApiErrorBanner, LoadingStrip } from '../components/Feedback'
 import { StatusBadge } from '../components/Badges'
 import { FilterPanel, InputField, SelectField } from '../components/FormFields'
+import { TimeSeriesDataTable } from '../components/TimeSeriesDataTable'
 import { TimeSeriesPanel } from '../components/TimeSeriesPanel'
 import { Toolbar } from '../components/Toolbar'
 import { applyGraphData, formatApiError, getCompany, getLatestValues, getSite } from '../services/domain'
@@ -24,6 +25,21 @@ const PERIOD_MILLISECONDS = {
 }
 const DEVICE_CLOCK_SKEW_MILLISECONDS = 15 * 60 * 1000
 
+function getTodayDate() {
+  const now = new Date()
+  const offsetDate = new Date(now.getTime() - now.getTimezoneOffset() * 60 * 1000)
+  return offsetDate.toISOString().slice(0, 10)
+}
+
+function getDateRangeParams(startDate, endDate) {
+  const from = new Date(`${startDate}T00:00:00`)
+  const to = new Date(`${endDate}T23:59:59.999`)
+  return {
+    from: from.toISOString(),
+    to: to.toISOString(),
+  }
+}
+
 function getRangeParams(period, startDatetime, endDatetime) {
   if (period === 'custom') {
     return {
@@ -40,10 +56,16 @@ function getRangeParams(period, startDatetime, endDatetime) {
 }
 
 export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack }) {
+  const today = getTodayDate()
+  const [activeTab, setActiveTab] = useState('graph')
   const [period, setPeriod] = useState('24h')
   const [startDatetime, setStartDatetime] = useState('')
   const [endDatetime, setEndDatetime] = useState('')
+  const [startDate, setStartDate] = useState(today)
+  const [endDate, setEndDate] = useState(today)
   const [graphColumns, setGraphColumns] = useState(device?.columns ?? [])
+  const [timeSeriesColumns, setTimeSeriesColumns] = useState(device?.columns ?? [])
+  const [hasLoadedTimeSeries, setHasLoadedTimeSeries] = useState(false)
   const [isLoading, setIsLoading] = useState(Boolean(device))
   const [error, setError] = useState('')
 
@@ -64,6 +86,39 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
     } finally {
       setIsLoading(false)
     }
+  }
+
+  async function loadTimeSeriesData() {
+    if (!device) return
+    if (!startDate || !endDate) {
+      setError('開始日と終了日を指定してください。')
+      return
+    }
+    if (startDate > endDate) {
+      setError('開始日は終了日以前の日付を指定してください。')
+      return
+    }
+
+    setIsLoading(true)
+    setError('')
+    try {
+      const graphData = await api.getDeviceGraph(
+        device.apiId ?? device.id,
+        getDateRangeParams(startDate, endDate),
+      )
+      setTimeSeriesColumns(applyGraphData(device, graphData))
+      setHasLoadedTimeSeries(true)
+    } catch (loadError) {
+      setTimeSeriesColumns(device.columns ?? [])
+      setError(formatApiError(loadError))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  function showTimeSeriesTab() {
+    setActiveTab('time-series')
+    if (!hasLoadedTimeSeries) loadTimeSeriesData()
   }
 
   useEffect(() => {
@@ -108,38 +163,17 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </div>
         <div className="toolbar-actions">
           <button type="button" onClick={onBack}>一覧へ戻る</button>
-          <button type="button" disabled={isLoading} onClick={loadGraphData}>表示</button>
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={activeTab === 'graph' ? loadGraphData : loadTimeSeriesData}
+          >
+            表示
+          </button>
         </div>
       </div>
 
       <CommonFilter role={role} filter={filter} onChange={onFilterChange} />
-
-      <FilterPanel>
-        <SelectField label="表示期間" value={period} onChange={setPeriod}>
-          <option value="1m">1分</option>
-          <option value="10m">10分</option>
-          <option value="1h">1時間</option>
-          <option value="12h">12時間</option>
-          <option value="24h">24時間</option>
-          <option value="3d">3日</option>
-          <option value="7d">7日</option>
-          <option value="2w">2週間</option>
-          <option value="1month">1ヶ月</option>
-          <option value="3months">3ヶ月</option>
-          <option value="6months">6ヶ月</option>
-          <option value="1year">1年</option>
-          <option value="custom">期間指定</option>
-        </SelectField>
-        {period === 'custom' && (
-          <>
-            <InputField label="開始日時" type="datetime-local" value={startDatetime} onChange={setStartDatetime} />
-            <InputField label="終了日時" type="datetime-local" value={endDatetime} onChange={setEndDatetime} />
-          </>
-        )}
-      </FilterPanel>
-
-      {error && <ApiErrorBanner message={error} onClose={() => setError('')} />}
-      {isLoading && <LoadingStrip>グラフデータを取得しています...</LoadingStrip>}
 
       <section className="graph-summary">
         <article className="metric-card compact">
@@ -159,14 +193,75 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </article>
       </section>
 
-      <section className="graph-stack">
-        {graphColumns.map((column) => (
-          <TimeSeriesPanel column={column} key={column.key} />
-        ))}
-        {!isLoading && graphColumns.every((column) => column.values.length === 0) && (
-          <article className="panel graph-panel empty-state">指定期間のデータはありません。</article>
-        )}
-      </section>
+      <div className="view-tabs" role="tablist" aria-label="データ表示形式">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'graph'}
+          className={activeTab === 'graph' ? 'active' : ''}
+          onClick={() => setActiveTab('graph')}
+        >
+          グラフ表示
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'time-series'}
+          className={activeTab === 'time-series' ? 'active' : ''}
+          onClick={showTimeSeriesTab}
+        >
+          時系列表示
+        </button>
+      </div>
+
+      {activeTab === 'graph' ? (
+        <FilterPanel>
+          <SelectField label="表示期間" value={period} onChange={setPeriod}>
+            <option value="1m">1分</option>
+            <option value="10m">10分</option>
+            <option value="1h">1時間</option>
+            <option value="12h">12時間</option>
+            <option value="24h">24時間</option>
+            <option value="3d">3日</option>
+            <option value="7d">7日</option>
+            <option value="2w">2週間</option>
+            <option value="1month">1ヶ月</option>
+            <option value="3months">3ヶ月</option>
+            <option value="6months">6ヶ月</option>
+            <option value="1year">1年</option>
+            <option value="custom">期間指定</option>
+          </SelectField>
+          {period === 'custom' && (
+            <>
+              <InputField label="開始日時" type="datetime-local" value={startDatetime} onChange={setStartDatetime} />
+              <InputField label="終了日時" type="datetime-local" value={endDatetime} onChange={setEndDatetime} />
+            </>
+          )}
+        </FilterPanel>
+      ) : (
+        <FilterPanel>
+          <InputField label="開始日" type="date" value={startDate} onChange={setStartDate} />
+          <InputField label="終了日" type="date" value={endDate} onChange={setEndDate} />
+        </FilterPanel>
+      )}
+
+      {error && <ApiErrorBanner message={error} onClose={() => setError('')} />}
+      {isLoading && <LoadingStrip>データを取得しています...</LoadingStrip>}
+
+      {activeTab === 'graph' ? (
+        <section className="graph-stack" role="tabpanel">
+          {graphColumns.map((column) => (
+            <TimeSeriesPanel column={column} key={column.key} />
+          ))}
+          {!isLoading && graphColumns.every((column) => column.values.length === 0) && (
+            <article className="panel graph-panel empty-state">指定期間のデータはありません。</article>
+          )}
+        </section>
+      ) : (
+        <div role="tabpanel">
+          <TimeSeriesDataTable columns={timeSeriesColumns} />
+        </div>
+      )}
     </div>
   )
 }

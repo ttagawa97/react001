@@ -61,6 +61,7 @@ export function normalizeColumn(column) {
     thresholds: column.thresholds ?? [],
     values: column.values ?? [],
     timestamps: column.timestamps ?? [],
+    serverTimestamps: column.serverTimestamps ?? column.server_timestamps ?? [],
   }
 }
 
@@ -390,6 +391,10 @@ export function applyGraphData(device, graphData) {
       .map((point) => ({
         value: normalizeGraphValue(getGraphPointRawValue(point, column), column),
         timestamp: point.device_timestamp ?? point.deviceTimestamp ?? point.timestamp,
+        serverTimestamp: point.server_timestamp
+          ?? point.serverTimestamp
+          ?? point.received_at
+          ?? point.receivedAt,
       }))
       .filter((point) => point.value !== undefined)
 
@@ -397,6 +402,7 @@ export function applyGraphData(device, graphData) {
       ...column,
       values: normalizedPoints.map((point) => point.value),
       timestamps: normalizedPoints.map((point) => point.timestamp),
+      serverTimestamps: normalizedPoints.map((point) => point.serverTimestamp),
     }
   }).sort((left, right) => left.order - right.order)
 }

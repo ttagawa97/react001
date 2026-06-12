@@ -313,15 +313,24 @@ ui_spec:
       route: /devices/{device_id}/graph
       layout: standard_admin
       authentication_required: true
-      purpose: 選択デバイスのカラム別時系列グラフ表示
+      purpose: 選択デバイスのカラム別グラフ・データ時系列表示
       filter:
         use_common_filter: true
         fields:
           - company_id
           - site_id
       components:
+        - id: display_tabs
+          type: Tabs
+          default: graph
+          items:
+            - { label: グラフ表示, value: graph }
+            - { label: 時系列表示, value: time_series }
+
         - id: graph_filter_area
           type: HStack
+          visible_when:
+            display_tabs: graph
           fields:
             - id: period_preset
               type: Select
@@ -367,6 +376,36 @@ ui_spec:
             show_threshold_lines: true
             show_threshold_exceeded_points: true
             show_invalid_data: false
+
+        - id: time_series_filter_area
+          type: HStack
+          visible_when:
+            display_tabs: time_series
+          fields:
+            - id: start_date
+              type: Input
+              input_type: date
+              label: 開始日
+              default: today
+            - id: end_date
+              type: Input
+              input_type: date
+              label: 終了日
+              default: today
+
+        - id: time_series_area
+          type: Table
+          visible_when:
+            display_tabs: time_series
+          datasource: GET /devices/{device_id}/graph
+          default_order: device_timestamp_desc
+          columns:
+            - device_timestamp
+            - column_name
+            - display_value
+            - raw_value
+            - unit
+            - server_timestamp
 
     # -------------------------------------------------------------------------
     # 06-06. COMPANY SETTINGS SCREEN

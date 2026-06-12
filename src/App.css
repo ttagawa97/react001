@@ -917,6 +917,35 @@ tbody tr:last-child td {
   color: #17202a;
 }
 
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.view-tabs button {
+  min-width: 132px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: #64748b;
+  padding: 10px 18px;
+  font-weight: 700;
+}
+
+.view-tabs button.active {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #0f766e;
+  box-shadow: 0 2px 0 #ffffff;
+}
+
+.time-series-table td:nth-child(3),
+.time-series-table td:nth-child(4) {
+  text-align: right;
+}
+
 .filter-panel {
   min-height: 74px;
   padding: 16px 18px;

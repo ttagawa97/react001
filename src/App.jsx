@@ -237,7 +237,14 @@ function Screen(props) {
   const { id, selectedDevice, onNavigate } = props
 
   if (id === 'devices') return <DevicesScreen {...props} />
-  if (id === 'device_graph') return <DeviceGraphScreen {...props} device={selectedDevice} onBack={() => onNavigate('devices')} />
+  if (id === 'device_graph') return (
+    <DeviceGraphScreen
+      {...props}
+      key={selectedDevice?.id ?? 'no-device'}
+      device={selectedDevice}
+      onBack={() => onNavigate('devices')}
+    />
+  )
   if (id === 'company_settings') return <CompanySettingsScreen {...props} />
   if (id === 'site_settings') return <SiteSettingsScreen {...props} />
   if (id === 'user_settings') return <UsersScreen {...props} />

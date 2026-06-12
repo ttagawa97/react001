@@ -599,7 +599,13 @@ api_spec:
         column_name: optional_string
       response:
         device_id: string
-        points: array
+        points:
+          - device_timestamp: datetime
+            server_timestamp: datetime
+            column_name: string
+            raw_value: number_or_string_or_boolean
+            display_value: number_or_string_or_boolean
+            is_valid: boolean
 
   # ===========================================================================
   # 09. THRESHOLD API
