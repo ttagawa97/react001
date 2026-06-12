@@ -1,36 +1,72 @@
-export function FilterPanel({ children }) {
-  return <section className="filter-panel">{children}</section>
-}
+import { Box, FormControl, FormLabel, Input, Select, Textarea } from '@chakra-ui/react'
 
-export function SelectField({ label, value, onChange, children, disabled = false }) {
+export function FilterPanel({ children }) {
   return (
-    <label>
-      <span>{label}</span>
-      <select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)}>
-        {children}
-      </select>
-    </label>
+    <Box
+      className="filter-panel"
+      as="section"
+      bg="rgba(255, 255, 255, 0.78)"
+      border="1px solid"
+      borderColor="whiteAlpha.700"
+      boxShadow="0 18px 55px rgba(124, 145, 191, 0.12)"
+      backdropFilter="blur(18px)"
+    >
+      {children}
+    </Box>
   )
 }
 
-export function InputField({ label, type, defaultValue, value, onChange, disabled = false, name }) {
+export function SelectField({ label, value, onChange, children, disabled = false, formControlProps }) {
+  return (
+    <FormControl {...formControlProps}>
+      <FormLabel m="0" color="slategray" fontSize="xs" fontWeight="700">{label}</FormLabel>
+      <Select
+        disabled={disabled}
+        value={value}
+        bg="whiteAlpha.900"
+        borderColor="brand.100"
+        borderRadius="16px"
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {children}
+      </Select>
+    </FormControl>
+  )
+}
+
+export function InputField({ label, type, defaultValue, value, onChange, disabled = false, name, formControlProps }) {
   const controlledProps = value === undefined
     ? { defaultValue }
     : { value, onChange: (event) => onChange?.(event.target.value) }
 
   return (
-    <label>
-      <span>{label}</span>
-      <input disabled={disabled} name={name} type={type} {...controlledProps} />
-    </label>
+    <FormControl {...formControlProps}>
+      <FormLabel m="0" color="slategray" fontSize="xs" fontWeight="700">{label}</FormLabel>
+      <Input
+        disabled={disabled}
+        name={name}
+        type={type}
+        bg="whiteAlpha.900"
+        borderColor="brand.100"
+        borderRadius="16px"
+        {...controlledProps}
+      />
+    </FormControl>
   )
 }
 
 export function TextareaField({ label, defaultValue, name }) {
   return (
-    <label>
-      <span>{label}</span>
-      <textarea defaultValue={defaultValue} name={name} />
-    </label>
+    <FormControl>
+      <FormLabel m="0" color="slategray" fontSize="xs" fontWeight="700">{label}</FormLabel>
+      <Textarea
+        defaultValue={defaultValue}
+        name={name}
+        minH="120px"
+        bg="whiteAlpha.900"
+        borderColor="brand.100"
+        borderRadius="16px"
+      />
+    </FormControl>
   )
 }

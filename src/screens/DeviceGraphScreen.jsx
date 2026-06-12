@@ -247,7 +247,12 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
 
       {activeTab === 'graph' ? (
         <FilterPanel>
-          <SelectField label="表示期間" value={period} onChange={changeGraphPeriod}>
+          <SelectField
+            label="表示期間"
+            value={period}
+            onChange={changeGraphPeriod}
+            formControlProps={{ flex: '0 0 180px', minW: '180px', maxW: '180px' }}
+          >
             <option value="1m">1分</option>
             <option value="10m">10分</option>
             <option value="1h">1時間</option>
@@ -271,8 +276,20 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </FilterPanel>
       ) : (
         <FilterPanel>
-          <InputField label="開始日" type="date" value={startDate} onChange={setStartDate} />
-          <InputField label="終了日" type="date" value={endDate} onChange={setEndDate} />
+          <InputField
+            label="開始日"
+            type="date"
+            value={startDate}
+            onChange={setStartDate}
+            formControlProps={{ flex: '0 0 190px', minW: '190px', maxW: '190px' }}
+          />
+          <InputField
+            label="終了日"
+            type="date"
+            value={endDate}
+            onChange={setEndDate}
+            formControlProps={{ flex: '0 0 190px', minW: '190px', maxW: '190px' }}
+          />
           <button
             className="filter-submit-button"
             type="button"

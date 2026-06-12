@@ -1,4 +1,15 @@
 import { useMemo, useState } from 'react'
+import {
+  Box,
+  Button,
+  Table as ChakraTable,
+  TableContainer,
+  Tbody,
+  Td,
+  Th,
+  Thead,
+  Tr,
+} from '@chakra-ui/react'
 
 function getRowCells(row) {
   return row.cells ?? row
@@ -26,13 +37,8 @@ function compareCells(a, b) {
   })
 }
 
-export function Table({ headers, rows, compact = false, className = '', columnWidths = [] }) {
+export function Table({ headers, rows, compact = false, className = '', columnWidths = [], containerProps = {} }) {
   const [sortConfig, setSortConfig] = useState(null)
-  const panelClassName = [
-    'table-panel',
-    compact ? 'compact-table' : '',
-    className,
-  ].filter(Boolean).join(' ')
   const sortedRows = useMemo(() => {
     if (!sortConfig) return rows
 
@@ -56,8 +62,18 @@ export function Table({ headers, rows, compact = false, className = '', columnWi
   }
 
   return (
-    <section className={panelClassName}>
-      <table>
+    <TableContainer
+      className={['table-panel', compact ? 'compact-table' : '', className].filter(Boolean).join(' ')}
+      bg="rgba(255, 255, 255, 0.84)"
+      border="1px solid"
+      borderColor="whiteAlpha.700"
+      borderRadius="28px"
+      boxShadow="0 18px 55px rgba(124, 145, 191, 0.12)"
+      backdropFilter="blur(18px)"
+      overflowX="auto"
+      {...containerProps}
+    >
+      <ChakraTable variant="simple">
         {columnWidths.length > 0 && (
           <colgroup>
             {headers.map((header, index) => (
@@ -65,30 +81,46 @@ export function Table({ headers, rows, compact = false, className = '', columnWi
             ))}
           </colgroup>
         )}
-        <thead>
-          <tr>
+        <Thead>
+          <Tr>
             {headers.map((header, index) => (
-              <th
+              <Th
                 key={header}
+                bg="rgba(245, 247, 255, 0.95)"
+                color="gray.500"
+                fontSize="11px"
+                fontWeight="800"
+                letterSpacing="0.04em"
                 aria-sort={
                   sortConfig?.columnIndex === index
                     ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending')
                     : 'none'
                 }
               >
-                <button className="sort-header-button" type="button" onClick={() => toggleSort(index)}>
-                  <span>{header}</span>
-                  <span aria-hidden="true" className="sort-indicator">
+                <Button
+                  className="sort-header-button"
+                  type="button"
+                  variant="ghost"
+                  justifyContent="space-between"
+                  width="100%"
+                  px="0"
+                  py="0"
+                  minH="auto"
+                  h="auto"
+                  onClick={() => toggleSort(index)}
+                >
+                  <Box as="span" overflow="hidden" textOverflow="ellipsis">{header}</Box>
+                  <Box as="span" aria-hidden="true" className="sort-indicator">
                     {sortConfig?.columnIndex === index ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
-                  </span>
-                </button>
-              </th>
+                  </Box>
+                </Button>
+              </Th>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </Tr>
+        </Thead>
+        <Tbody>
           {sortedRows.map((row, index) => (
-            <tr
+            <Tr
               className={[
                 row.selected ? 'selected-row' : '',
                 row.onDoubleClick ? 'interactive-row' : '',
@@ -97,19 +129,20 @@ export function Table({ headers, rows, compact = false, className = '', columnWi
               onClick={row.onClick}
               onDoubleClick={row.onDoubleClick}
               tabIndex={row.onDoubleClick ? 0 : undefined}
+              _hover={row.onDoubleClick ? { bg: 'rgba(237, 247, 244, 0.95)' } : undefined}
             >
               {getRowCells(row).map((cell, cellIndex) => (
-                <td key={`${index}-${cellIndex}`}>{cell}</td>
+                <Td key={`${index}-${cellIndex}`} color="gray.700" py={compact ? '3' : '4'}>{cell}</Td>
               ))}
-            </tr>
+            </Tr>
           ))}
           {rows.length === 0 && (
-            <tr>
-              <td colSpan={headers.length}>該当するデータがありません</td>
-            </tr>
+            <Tr>
+              <Td colSpan={headers.length}>該当するデータがありません</Td>
+            </Tr>
           )}
-        </tbody>
-      </table>
-    </section>
+        </Tbody>
+      </ChakraTable>
+    </TableContainer>
   )
 }

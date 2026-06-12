@@ -7,6 +7,14 @@ import { Toolbar } from '../components/Toolbar'
 import { companies, sites } from '../data/store'
 import { formatApiError, loadInitialData } from '../services/domain'
 
+function formatCompanyTimestamp(value) {
+  if (!value || value === '-') return '-'
+
+  const normalized = String(value).replace('T', ' ')
+  const match = normalized.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/)
+  return match ? match[1] : normalized
+}
+
 export function CompanySettingsScreen({ onDataChanged, onError }) {
   const [companyFormState, setCompanyFormState] = useState(null)
   const activeCompanies = companies.filter((company) => company.status === 'active').length
@@ -51,8 +59,8 @@ export function CompanySettingsScreen({ onDataChanged, onError }) {
               {company.status === 'active' ? '有効' : '無効'}
             </StatusPill>,
             sites.filter((site) => site.companyId === company.id).length,
-            company.createdAt,
-            company.updatedAt,
+            formatCompanyTimestamp(company.createdAt),
+            formatCompanyTimestamp(company.updatedAt),
           ],
         }))}
       />

@@ -2,6 +2,29 @@ import { api, ApiError } from '../api'
 import { roleProfiles } from '../data/constants'
 import { auditLogs, companies, devices, sites, thresholds, users } from '../data/store'
 
+const seedCompanies = companies.map((company) => ({
+  ...company,
+  sites: [...(company.sites ?? [])],
+}))
+
+const seedSites = sites.map((site) => ({ ...site }))
+
+const seedDevices = devices.map((device) => ({
+  ...device,
+  columns: (device.columns ?? []).map((column) => ({
+    ...column,
+    thresholds: (column.thresholds ?? []).map((threshold) => ({ ...threshold })),
+    values: [...(column.values ?? [])],
+    timestamps: [...(column.timestamps ?? [])],
+    serverTimestamps: [...(column.serverTimestamps ?? [])],
+  })),
+  latestValues: (device.latestValues ?? []).map((entry) => ({ ...entry })),
+}))
+
+const seedUsers = users.map((user) => ({ ...user }))
+const seedThresholds = thresholds.map((threshold) => ({ ...threshold }))
+const seedAuditLogs = auditLogs.map((log) => ({ ...log }))
+
 export function asArray(value) {
   if (Array.isArray(value)) return value
   if (Array.isArray(value?.items)) return value.items
@@ -238,36 +261,44 @@ async function optionalData(request, fallback = []) {
   }
 }
 
+function fallbackWhenEmpty(data, fallback) {
+  return asArray(data).length > 0 ? data : fallback
+}
+
 export async function loadInitialData(role = 'system_admin') {
   const canReadCompanies = role === 'system_admin'
   const canReadManagementTables = role !== 'general_user'
 
   const [companyData, siteData, deviceData, latestDeviceData, userData, thresholdData, auditLogData] = await Promise.all([
     canReadCompanies
-      ? optionalData(api.listCompanies).then((data) => (asArray(data).length > 0 ? data : optionalData(api.listMasterCompanies, companies)))
-      : optionalData(api.listMasterCompanies, companies),
-    api.listSites(),
-    api.listDevices(),
-    api.listLatestDevices(),
-    canReadManagementTables ? optionalData(api.listUsers) : Promise.resolve([]),
-    canReadManagementTables ? optionalData(api.listThresholds) : Promise.resolve([]),
-    canReadManagementTables ? optionalData(api.listAuditLogs) : Promise.resolve([]),
+      ? optionalData(api.listCompanies).then((data) => (
+        asArray(data).length > 0
+          ? data
+          : optionalData(api.listMasterCompanies, seedCompanies)
+      ))
+      : optionalData(api.listMasterCompanies, seedCompanies),
+    optionalData(api.listSites, seedSites),
+    optionalData(api.listDevices, seedDevices),
+    optionalData(api.listLatestDevices, []),
+    canReadManagementTables ? optionalData(api.listUsers, seedUsers) : Promise.resolve(seedUsers),
+    canReadManagementTables ? optionalData(api.listThresholds, seedThresholds) : Promise.resolve(seedThresholds),
+    canReadManagementTables ? optionalData(api.listAuditLogs, seedAuditLogs) : Promise.resolve(seedAuditLogs),
   ])
 
-  replaceCollection(companies, asArray(companyData).map(normalizeCompany))
-  replaceCollection(sites, asArray(siteData).map(normalizeSite))
+  replaceCollection(companies, asArray(fallbackWhenEmpty(companyData, seedCompanies)).map(normalizeCompany))
+  replaceCollection(sites, asArray(fallbackWhenEmpty(siteData, seedSites)).map(normalizeSite))
 
-  const normalizedDevices = asArray(deviceData).map(normalizeDevice)
+  const normalizedDevices = asArray(fallbackWhenEmpty(deviceData, seedDevices)).map(normalizeDevice)
   const normalizedLatestDevices = asArray(latestDeviceData).map(normalizeDevice)
-  const normalizedThresholds = asArray(thresholdData).map(normalizeThreshold)
+  const normalizedThresholds = asArray(fallbackWhenEmpty(thresholdData, seedThresholds)).map(normalizeThreshold)
 
   replaceCollection(devices, attachThresholdsToDevices(
     mergeLatestDeviceData(normalizedDevices, normalizedLatestDevices),
     normalizedThresholds,
   ))
-  replaceCollection(users, asArray(userData).map(normalizeUser))
+  replaceCollection(users, asArray(fallbackWhenEmpty(userData, seedUsers)).map(normalizeUser))
   replaceCollection(thresholds, normalizedThresholds)
-  replaceCollection(auditLogs, asArray(auditLogData).map(normalizeAuditLog))
+  replaceCollection(auditLogs, asArray(fallbackWhenEmpty(auditLogData, seedAuditLogs)).map(normalizeAuditLog))
 }
 
 export async function refreshLatestDevices(params) {

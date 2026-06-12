@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Box, Button, Flex, Heading, Select, Text } from '@chakra-ui/react'
 import { api } from './api'
 import { ApiErrorBanner, LoadingStrip } from './components/Feedback'
 import { Icon } from './components/Icon'
@@ -152,67 +153,90 @@ function App() {
   }
 
   return (
-    <div className={isSidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">IP</div>
-          <div className="brand-copy">
-            <strong>iot_platform</strong>
-            <span>authority scoped mock</span>
-          </div>
-          <button
+    <Box className={isSidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
+      <Box
+        as="aside"
+        className="sidebar"
+        bg="linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(244,248,255,0.7) 100%)"
+        borderRight="1px solid rgba(255,255,255,0.65)"
+        boxShadow="0 18px 60px rgba(111, 129, 174, 0.14)"
+        backdropFilter="blur(22px)"
+      >
+        <Flex className="brand" align="center" gap="3">
+          <Box
+            className="brand-mark"
+            bg="linear-gradient(135deg, #d8e4ff 0%, #bfeee2 100%)"
+            color="brand.800"
+            boxShadow="inset 0 1px 0 rgba(255,255,255,0.7)"
+          >
+            IP
+          </Box>
+          <Box className="brand-copy">
+            <Heading as="strong" size="sm">iot_platform</Heading>
+            <Text fontSize="xs" color="gray.500" mt="1">authority scoped mock</Text>
+          </Box>
+          <Button
             aria-label={isSidebarCollapsed ? 'メニューを開く' : 'メニューを閉じる'}
             aria-expanded={!isSidebarCollapsed}
             className="sidebar-toggle"
             type="button"
+            variant="ghost"
             onClick={() => setIsSidebarCollapsed((current) => !current)}
           >
             <span />
             <span />
             <span />
-          </button>
-        </div>
+          </Button>
+        </Flex>
 
         <nav className="side-menu" aria-label="メインメニュー">
           {visibleMenuGroups.map((group) => (
             <div className={group.id === 'maintenance' ? 'menu-group maintenance-group' : 'menu-group'} key={group.id}>
               {group.label && <p className="menu-group-label">{group.label}</p>}
               {group.items.map((item) => (
-                <button
+                <Button
                   className={item.id === activeScreen ? 'menu-button active' : 'menu-button'}
                   key={item.id}
                   title={isSidebarCollapsed ? item.label : undefined}
                   type="button"
+                  variant="ghost"
+                  justifyContent="flex-start"
                   onClick={() => setActiveScreen(item.id)}
                 >
                   <Icon type={item.icon} />
                   <span>{item.label}</span>
-                </button>
+                </Button>
               ))}
             </div>
           ))}
         </nav>
-      </aside>
+      </Box>
 
-      <main className="main-panel">
-        <header className="topbar">
-          <div>
+      <Box as="main" className="main-panel">
+        <Flex
+          as="header"
+          className="topbar"
+          bg="rgba(255, 255, 255, 0.62)"
+          borderBottom="1px solid rgba(255,255,255,0.7)"
+          backdropFilter="blur(24px)"
+        >
+          <Box>
             <p className="eyebrow">Asia/Tokyo / API base: /api/v1</p>
             <h1>{activeLabel}</h1>
-          </div>
-          <div className="user-box">
+          </Box>
+          <Flex className="user-box" align="center" gap="3" wrap="wrap">
             <label className="role-switcher">
               <span>権限</span>
-              <select value={role} disabled onChange={(event) => changeRole(event.target.value)}>
+              <Select value={role} disabled maxW="180px" onChange={(event) => changeRole(event.target.value)}>
                 {Object.entries(roleLabels).map(([roleId, label]) => (
                   <option key={roleId} value={roleId}>{label}</option>
                 ))}
-              </select>
+              </Select>
             </label>
-            <span>ログイン: {roleProfiles[role].loginId}</span>
-            <button type="button" onClick={logout}>ログアウト</button>
-          </div>
-        </header>
+            <Text>ログイン: {roleProfiles[role].loginId}</Text>
+            <Button type="button" variant="outline" onClick={logout}>ログアウト</Button>
+          </Flex>
+        </Flex>
 
         {appError && <ApiErrorBanner message={appError} onClose={() => setAppError('')} />}
         {isLoadingData && <LoadingStrip />}
@@ -228,8 +252,8 @@ function App() {
           onDataChanged={refreshDataVersion}
           onError={(message) => setAppError(message)}
         />
-      </main>
-    </div>
+      </Box>
+    </Box>
   )
 }
 

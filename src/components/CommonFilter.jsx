@@ -1,3 +1,5 @@
+import { Box, Text } from '@chakra-ui/react'
+
 import { roleLabels, roleProfiles } from '../data/constants'
 import { companies, sites } from '../data/store'
 import { FilterPanel, SelectField } from './FormFields'
@@ -29,18 +31,40 @@ export function CommonFilter({ role, filter, onChange }) {
 
   return (
     <FilterPanel>
-      <SelectField label="企業" value={filter.companyId} onChange={changeCompany} disabled={companyDisabled}>
+      <SelectField
+        label="企業"
+        value={filter.companyId}
+        onChange={changeCompany}
+        disabled={companyDisabled}
+        formControlProps={{ flex: '0 0 220px', minW: '220px', maxW: '220px' }}
+      >
         {role === 'system_admin' && <option value="all">全企業</option>}
         {companyOptions.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
       </SelectField>
-      <SelectField label="現場" value={filter.siteId} onChange={changeSite} disabled={siteDisabled}>
+      <SelectField
+        label="現場"
+        value={filter.siteId}
+        onChange={changeSite}
+        disabled={siteDisabled}
+        formControlProps={{ flex: '0 0 220px', minW: '220px', maxW: '220px' }}
+      >
         {!profile.siteId && <option value="all">全現場</option>}
         {siteOptions.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
       </SelectField>
-      <div className="filter-note">
-        <span>適用権限</span>
-        <strong>{roleLabels[role]}</strong>
-      </div>
+      <Box
+        className="filter-note"
+        flex="0 0 180px"
+        minW="180px"
+        maxW="180px"
+        bg="rgba(244, 247, 255, 0.86)"
+        borderColor="brand.100"
+        borderRadius="18px"
+        px="4"
+        py="3"
+      >
+        <Text color="gray.500" fontSize="11px" fontWeight="700">適用権限</Text>
+        <Text color="brand.700" fontSize="sm" fontWeight="700">{roleLabels[role]}</Text>
+      </Box>
     </FilterPanel>
   )
 }

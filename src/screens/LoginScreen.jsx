@@ -1,4 +1,14 @@
 import { useState } from 'react'
+import {
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  Heading,
+  Input,
+  Stack,
+  Text,
+} from '@chakra-ui/react'
 import { api } from '../api'
 import { formatApiError } from '../services/domain'
 
@@ -50,54 +60,71 @@ export function LoginScreen({ error, isSubmitting, onClearError, onLogin }) {
   }
 
   return (
-    <main className="login-screen">
-      <section className="login-card" aria-label="ログイン">
-        <div className="login-brand">
-          <div className="brand-mark">IP</div>
-          <div>
-            <strong>iot_platform</strong>
-            <span>{isResetMode ? 'password reset flow' : 'simple admin console'}</span>
-          </div>
-        </div>
+    <Box className="login-screen" as="main">
+      <Box
+        className="login-card"
+        as="section"
+        aria-label="ログイン"
+        bg="rgba(255, 255, 255, 0.78)"
+        border="1px solid"
+        borderColor="whiteAlpha.700"
+        borderRadius="32px"
+        boxShadow="0 28px 80px rgba(112, 133, 182, 0.22)"
+        backdropFilter="blur(22px)"
+      >
+        <Stack className="login-brand" direction="row" align="center" spacing="4">
+          <Box
+            className="brand-mark"
+            bg="linear-gradient(135deg, #d8e4ff 0%, #bfeee2 100%)"
+            color="brand.800"
+            boxShadow="inset 0 1px 0 rgba(255,255,255,0.6)"
+          >
+            IP
+          </Box>
+          <Box>
+            <Heading as="strong" size="md">iot_platform</Heading>
+            <Text color="gray.500" fontSize="sm">{isResetMode ? 'password reset flow' : 'pastel admin console'}</Text>
+          </Box>
+        </Stack>
         {isResetMode ? (
-          <form className="login-form" onSubmit={submitPasswordReset}>
-            {(formError || error) && <p className="form-error">{formError || error}</p>}
-            {resetMessage && <p className="form-success">{resetMessage}</p>}
-            <label>
-              <span>ログインID</span>
-              <input type="text" autoComplete="username" value={resetLoginId} onChange={(event) => setResetLoginId(event.target.value)} />
-            </label>
-            <label>
-              <span>新しいパスワード</span>
-              <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
-            </label>
-            <label>
-              <span>新しいパスワード確認</span>
-              <input type="password" autoComplete="new-password" />
-            </label>
-            <button type="submit" disabled={isSubmitting}>パスワードを変更</button>
-            <button className="text-button" type="button" onClick={() => changeMode('login')}>
+          <Stack as="form" className="login-form" onSubmit={submitPasswordReset} spacing="4">
+            {(formError || error) && <Text className="form-error">{formError || error}</Text>}
+            {resetMessage && <Text className="form-success">{resetMessage}</Text>}
+            <FormControl>
+              <FormLabel>ログインID</FormLabel>
+              <Input type="text" autoComplete="username" value={resetLoginId} onChange={(event) => setResetLoginId(event.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>新しいパスワード</FormLabel>
+              <Input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>新しいパスワード確認</FormLabel>
+              <Input type="password" autoComplete="new-password" />
+            </FormControl>
+            <Button type="submit" isDisabled={isSubmitting}>パスワードを変更</Button>
+            <Button className="text-button" type="button" variant="ghost" onClick={() => changeMode('login')}>
               ログイン画面へ戻る
-            </button>
-          </form>
+            </Button>
+          </Stack>
         ) : (
-          <form className="login-form" onSubmit={submitLogin}>
-            {(formError || error) && <p className="form-error">{formError || error}</p>}
-            <label>
-              <span>ログインID</span>
-              <input type="text" autoComplete="username" value={loginId} onChange={(event) => setLoginId(event.target.value)} />
-            </label>
-            <label>
-              <span>パスワード</span>
-              <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            </label>
-            <button type="submit" disabled={isSubmitting}>{isSubmitting ? '通信中...' : 'ログイン'}</button>
-            <button className="text-button" type="button" onClick={() => changeMode('password_reset')}>
+          <Stack as="form" className="login-form" onSubmit={submitLogin} spacing="4">
+            {(formError || error) && <Text className="form-error">{formError || error}</Text>}
+            <FormControl>
+              <FormLabel>ログインID</FormLabel>
+              <Input type="text" autoComplete="username" value={loginId} onChange={(event) => setLoginId(event.target.value)} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>パスワード</FormLabel>
+              <Input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            </FormControl>
+            <Button type="submit" isDisabled={isSubmitting}>{isSubmitting ? '通信中...' : 'ログイン'}</Button>
+            <Button className="text-button" type="button" variant="ghost" onClick={() => changeMode('password_reset')}>
               パスワード再発行
-            </button>
-          </form>
+            </Button>
+          </Stack>
         )}
-      </section>
-    </main>
+      </Box>
+    </Box>
   )
 }

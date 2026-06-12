@@ -1,22 +1,30 @@
+import { Button, Flex, Heading, Text } from '@chakra-ui/react'
+
 export function Toolbar({ title, action, detail = 'モックデータで画面構成を確認できます。', onAction, actionDisabled = false }) {
   return (
-    <div className="toolbar">
+    <Flex
+      className="toolbar"
+      direction={{ base: 'column', lg: 'row' }}
+      align={{ base: 'flex-start', lg: 'center' }}
+      justify="space-between"
+      gap="5"
+    >
       <div>
-        <h2>{title}</h2>
-        <p>{detail}</p>
+        <Heading as="h2" size="md">{title}</Heading>
+        <Text mt="1.5">{detail}</Text>
       </div>
-      <button type="button" disabled={actionDisabled} onClick={onAction}>{action}</button>
-    </div>
+      <Button type="button" onClick={onAction} isDisabled={actionDisabled}>{action}</Button>
+    </Flex>
   )
 }
 
 export function PanelHeader({ title, detail }) {
   return (
-    <div className="panel-header">
+    <Flex className="panel-header" align="flex-start" justify="space-between" gap="4">
       <div>
-        <h2>{title}</h2>
-        <p>{detail}</p>
+        <Heading as="h2" size="md">{title}</Heading>
+        <Text mt="1.5">{detail}</Text>
       </div>
-    </div>
+    </Flex>
   )
 }

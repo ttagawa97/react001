@@ -42,6 +42,7 @@ export function TimeSeriesDataTable({ columns }) {
       headers={['デバイス日時', 'カラム', '表示値', '受信生値', '単位', '受信日時']}
       rows={rows}
       columnWidths={['19%', '22%', '14%', '14%', '12%', '19%']}
+      containerProps={{ maxH: '736px', overflowY: 'auto' }}
     />
   )
 }
