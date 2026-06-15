@@ -1,3 +1,19 @@
+manifest:
+  system_name: iot_platform
+  spec_version: 2.1.0
+  language: ja
+  generation_goal: この一式のみから現行Reactアプリと同等の画面、状態管理、API接続、権限制御を生成できること
+  read_order:
+    - 01_overall_spec.yaml
+    - 02_data_spec.yaml
+    - 04_api_spec.yaml
+    - 03_ui_spec.yaml
+    - 05_infra_spec.yaml
+  implementation_priority:
+    - 現行実装済みと記載された仕様を優先する
+    - pendingまたはtarget_architectureは現行アプリ生成の必須条件にしない
+    - ファイル間で差異がある場合はspec_versionが同じであることを確認し、画面は03、APIは04、データ判定は02を正とする
+
 spec_files:
   - 01_overall_spec.yaml
   - 02_data_spec.yaml

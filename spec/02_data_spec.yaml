@@ -10,10 +10,10 @@
 #   TimescaleDB、ダウンサンプリング、検証ルールを定義する。
 #
 # Spec Version:
-#   2.0.0
+#   2.1.0
 #
 # Last Updated:
-#   2026-06-12
+#   2026-06-15
 #
 # Authoring Agent:
 #   OpenAI GPT-5.5
@@ -28,7 +28,7 @@ data_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.0.0
+    spec_version: 2.1.0
     document_type: data_specification
     depends_on:
       - 01_overall_spec.yaml
@@ -373,6 +373,58 @@ data_spec:
           - after_value
           - created_at
 
+  frontend_view_model_rules:
+    identifier_normalization: company, site, device and user identifiers are converted to strings in the client
+    prototype_fallback:
+      source: src/data/store.js
+      use_when:
+        - API_request_fails
+        - API_collection_is_empty
+      graph_fallback: device.columnsのローカル時系列を使用する
+    accepted_collection_shapes:
+      - raw_array
+      - data_array
+      - results
+      - items
+      - named_collection
+    accepted_named_collections:
+      - companies
+      - sites
+      - users
+      - devices
+      - thresholds
+      - logs
+      - audit_logs
+    key_aliases:
+      rule: APIのsnake_caseを標準とし、既存モック互換のcamelCaseも読み取る
+      examples:
+        - company_id_or_companyId
+        - site_id_or_siteId
+        - device_name_or_name
+        - latest_values_or_latestValues
+        - latest_received_at_or_latestReceivedAt
+    latest_values:
+      accepted_shapes:
+        - array_of_entries
+        - object_keyed_by_column_name
+      normalized_fields:
+        - column_name
+        - display_name
+        - unit
+        - raw_value
+        - display_value
+    audit_log_projection:
+      datetime_source_priority:
+        - created_at
+        - changed_at
+        - at
+      user_source_priority:
+        - changed_by_user.login_id
+        - login_id
+        - changed_by
+        - user_id
+      target_name_rule: target_typeに応じて企業名、現場名、デバイス名、ユーザー名を解決し、解決不能時はtarget_idを表示する
+
   # ===========================================================================
   # 05. TIMESCALEDB STRATEGY
   # ===========================================================================
@@ -475,6 +527,28 @@ data_spec:
       use_display_value: true
       upper_limit_check: true
       lower_limit_check: true
+      current_status_source_priority:
+        device_graph:
+          - latest_valid_graph_display_value
+          - latest_values_display_value
+          - latest_values_raw_value
+        device_list:
+          - latest_values_display_value
+          - latest_values_raw_value
+      result_rules:
+        upper_exceeded: one_or_more_values > upper_limit
+        lower_exceeded: one_or_more_values < lower_limit
+        both_exceeded: upper_exceeded_and_lower_exceeded_exist
+        normal: comparable_value_exists_and_all_thresholds_are_within_range
+        unconfigured: no_threshold_exists_for_any_comparable_column
+        indeterminate: threshold_exists_but_no_comparable_numeric_value_exists
+      display_labels:
+        upper_exceeded: 上限超過
+        lower_exceeded: 下限超過
+        both_exceeded: 上下限超過
+        normal: 正常
+        unconfigured: 閾値未設定
+        indeterminate: 判定不能
 
     notification_control:
       suppress_repeat_within_minutes: true

@@ -6,10 +6,10 @@
 #   01_overall_spec.yaml
 #
 # Spec Version:
-#   1.9.0
+#   2.1.0
 #
 # Last Updated:
-#   2026-06-01
+#   2026-06-15
 #
 # Revision:
 #   - 企業マスタ管理画面を追加
@@ -26,7 +26,7 @@ overall_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 1.9.0
+    spec_version: 2.1.0
     document_type: overall_specification
     language: ja
     timezone: Asia/Tokyo
@@ -214,12 +214,16 @@ overall_spec:
     visible_on_screens:
       - dashboard
       - devices
-      - company_settings
       - site_settings
       - user_settings
       - device_settings
       - threshold_settings
       - audit_logs
+    hidden_on_screens:
+      - login
+      - password_reset
+      - company_settings
+      - device_graph
 
     fields:
       - company_id
@@ -301,14 +305,104 @@ overall_spec:
     error_data:
       exclude_from_threshold_check: true
 
+    current_status:
+      source_priority:
+        device_list: latest_values_then_column_history
+        device_graph: displayed_graph_last_valid_point_then_latest_values
+      use_display_value: true
+      result_labels:
+        normal: 正常
+        upper_exceeded: 上限超過
+        lower_exceeded: 下限超過
+        both_exceeded: 上下限超過
+        no_threshold: 閾値未設定
+        cannot_evaluate: 判定不能
+
   # ===========================================================================
-  # 11. AI IMPLEMENTATION RULES
+  # 11. AUTHENTICATED SESSION RULES
+  # ===========================================================================
+
+  authenticated_session_rules:
+    storage_scope: browser_tab
+    storage: sessionStorage
+    token_key: iot_platform_auth_token
+    user_key: iot_platform_auth_user
+    persisted_user_fields:
+      - login_id
+      - role_id
+      - company_id
+      - site_id
+    reload_behavior:
+      restore_without_login: true
+      restore_initial_data: true
+      expired_jwt: clear_session_and_show_login
+      invalid_session: clear_session_and_show_login
+    logout_behavior:
+      call_logout_api: true
+      clear_token: true
+      clear_user_profile: true
+      navigate_to: login
+
+  # ===========================================================================
+  # 12. FRONTEND IMPLEMENTATION CONTRACT
+  # ===========================================================================
+
+  frontend_implementation_contract:
+    framework: React
+    language: JavaScript_ES_modules
+    build_tool: Vite
+    ui_library: Chakra_UI_v2
+    chart_library: Chart.js
+    routing: state_based_single_page_navigation
+    api_client: browser_fetch
+    api_base_default: /api/v1
+    api_base_environment_variable: VITE_API_BASE_PATH
+    prototype_data_loading:
+      implementation_status: current
+      optional_api_fallback: src/data/store.js seed data
+      empty_collection_fallback: seed data
+      system_admin_initial_requests:
+        - GET /companies
+        - GET /sites
+        - GET /devices
+        - GET /devices/latest
+        - GET /users
+        - GET /thresholds
+        - GET /audit-logs
+      company_or_site_admin_initial_requests:
+        - GET /masters/companies
+        - GET /sites
+        - GET /devices
+        - GET /devices/latest
+        - GET /users
+        - GET /thresholds
+        - GET /audit-logs
+      general_user_initial_requests:
+        - GET /masters/companies
+        - GET /sites
+        - GET /devices
+        - GET /devices/latest
+        - GET /thresholds
+      dashboard_summary_endpoint_usage: not_currently_used
+    visual_identity:
+      product_name: Sensorix
+      logo_asset: src/assets/sensorix_logo.png
+      theme: dark
+      logo_container_background: near_black
+      main_background: dark_navy
+      accents:
+        - cyan
+        - blue
+        - orange
+
+  # ===========================================================================
+  # 13. AI IMPLEMENTATION RULES
   # ===========================================================================
 
   ai_implementation_rules:
     mandatory:
       - use_react
-      - use_typescript
+      - use_javascript_es_modules
       - use_chakra_ui
       - use_chartjs
       - use_django
@@ -326,7 +420,7 @@ overall_spec:
       - data_discard
 
   # ===========================================================================
-  # 12. PENDING ITEMS
+  # 14. PENDING ITEMS
   # ===========================================================================
 
   pending_items:

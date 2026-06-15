@@ -6,10 +6,10 @@
 #   05_infra_spec.yaml
 #
 # Spec Version:
-#   2.0.0
+#   2.1.0
 #
 # Last Updated:
-#   2026-06-12
+#   2026-06-15
 #
 # Authoring Agent:
 #   OpenAI GPT-5.5
@@ -28,7 +28,7 @@ infra_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.0.0
+    spec_version: 2.1.0
     document_type: infrastructure_specification
 
   # ===========================================================================
@@ -38,13 +38,25 @@ infra_spec:
   technology_stack:
     frontend:
       framework: React
-      language: TypeScript
+      language: JavaScript ES Modules
       build_tool: Vite
       ui_library: Chakra UI
       chart_library: Chart.js
       chart_wrapper: react-chartjs-2
-      router: React Router
-      api_client: axios
+      router: none
+      navigation: React state based screen switching
+      api_client: browser_fetch
+      source_root: ./src
+      package_root: .
+      api_base_path:
+        environment_variable: VITE_API_BASE_PATH
+        default: /api/v1
+      development_proxy:
+        path: /api
+        target: http://127.0.0.1:8000
+      session_storage:
+        token_key: iot_platform_auth_token
+        user_key: iot_platform_auth_user
 
     backend:
       development:
@@ -119,6 +131,7 @@ infra_spec:
   # ===========================================================================
 
   docker_compose:
+    implementation_status: target_architecture_not_present_in_current_frontend_workspace
     file_name: docker-compose.yml
 
     services:
@@ -216,12 +229,22 @@ infra_spec:
   # ===========================================================================
 
   directory_structure:
-    root: .
-    frontend: ./frontend
-    backend: ./backend
-    infra: ./infra
-    initdb: ./infra/initdb
-    docs: ./docs
+    current_frontend_workspace:
+      root: .
+      source: ./src
+      public_assets: ./public
+      specification: ./spec
+      entry_points:
+        - ./src/main.jsx
+        - ./src/App.jsx
+      logo_asset: ./src/assets/sensorix_logo.png
+    target_full_stack:
+      status: pending
+      frontend: ./frontend
+      backend: ./backend
+      infra: ./infra
+      initdb: ./infra/initdb
+      docs: ./docs
 
   # ===========================================================================
   # 07. STARTUP COMMANDS

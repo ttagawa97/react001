@@ -11,10 +11,10 @@
 #   Request/Response形式、権限制御を定義する。
 #
 # Spec Version:
-#   2.0.0
+#   2.1.0
 #
 # Last Updated:
-#   2026-06-12
+#   2026-06-15
 #
 # Authoring Agent:
 #   OpenAI GPT-5.5
@@ -29,7 +29,7 @@ api_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.0.0
+    spec_version: 2.1.0
     document_type: api_specification
     base_path: /api/v1
 
@@ -39,6 +39,21 @@ api_spec:
 
   common:
     response_format: json
+
+    frontend_client:
+      implementation: browser_fetch
+      base_path_env: VITE_API_BASE_PATH
+      default_base_path: /api/v1
+      credentials: include
+      authorization_header: Bearer {session_token}
+      token_storage: sessionStorage.iot_platform_auth_token
+      success_payload_unwrap: dataが存在する場合はdataを返し、存在しない場合はレスポンス本体を返す
+      accepted_list_shapes:
+        - array
+        - data_array
+        - results
+        - items
+        - named_collection
 
     success_response:
       success: true
@@ -76,10 +91,27 @@ api_spec:
     - id: login
       method: POST
       path: /auth/login
+      request:
+        login_id: string
+        password: string
+      response:
+        token: string
+        user:
+          id: integer_or_string
+          login_id: string
+          user_name: string
+          role: system_admin_or_company_admin_or_site_admin_or_general_user
+          company_id: nullable_integer_or_string
+          site_id: nullable_integer_or_string
+      client_behavior:
+        - store token in sessionStorage
+        - store user object in sessionStorage.iot_platform_auth_user
+        - restore both values on browser reload
 
     - id: logout
       method: POST
       path: /auth/logout
+      client_behavior: API成否にかかわらず保存済みtokenとuserを削除する
 
     - id: password_reset_request
       method: POST
@@ -88,6 +120,10 @@ api_spec:
     - id: password_reset_execute
       method: POST
       path: /auth/password-reset/execute
+      request:
+        login_id: string
+        new_password: string
+      ui_usage: 現在のパスワード再設定画面が直接使用する
 
   # ===========================================================================
   # 04. DEVICE RECEIVE API
@@ -409,17 +445,32 @@ api_spec:
         site_name: string
         device_id: string
         device_name: string
-        latest_values: array
+        latest_values:
+          - column_name: string
+            display_name: string
+            unit: string
+            raw_value: number_or_string_or_boolean
+            display_value: number_or_string_or_boolean
         latest_received_at: nullable_datetime
         estimated_interval_seconds: nullable_number
         communication_status: online_or_offline_or_unknown
-        alert_status: normal_or_alert
+        alert_status: normal_or_alert_or_unconfigured_or_indeterminate
       communication_status_rule:
         source: device_status
         evaluated_at: request_datetime
         online: latest_received_atからestimated_interval_seconds以内
         offline: latest_received_atからestimated_interval_secondsを超過
         unknown: 未受信または受信間隔を推定できない
+      alert_status_rule:
+        calculation_value_priority:
+          - latest_values.display_value
+          - latest_values.raw_value
+        lower_alert: value < lower_limit
+        upper_alert: value > upper_limit
+        normal: 比較可能な全カラムが全閾値の範囲内
+        unconfigured: 比較可能なカラムに閾値設定がない
+        indeterminate: 閾値設定はあるが比較可能な数値がない
+        client_fallback: alert_statusが未提供または固定値の場合、GET /thresholds と latest_values から再計算し、正常・上限超過・下限超過・上下限超過・閾値未設定・判定不能のいずれかを表示する
 
     - id: get_device
       method: GET
@@ -620,6 +671,9 @@ api_spec:
             raw_value: number_or_string_or_boolean
             display_value: number_or_string_or_boolean
             is_valid: boolean
+      response_rules:
+        point_order: device_timestamp_ascending
+        threshold_status_value: 最後のis_valid=trueのdisplay_valueを使用し、なければlatest_valuesへフォールバックする
 
   # ===========================================================================
   # 09. THRESHOLD API
@@ -795,6 +849,26 @@ api_spec:
         - system_admin
         - company_admin
         - site_admin
+      query:
+        company_id: optional_integer
+        site_id: optional_integer
+      response:
+        id: integer
+        created_at: datetime
+        changed_by: nullable_integer_or_string
+        changed_by_login_id: nullable_string
+        action: string
+        target_type: company_or_site_or_device_or_user_or_threshold_or_other
+        target_id: nullable_integer_or_string
+        target_display_name: nullable_string
+        company_id: nullable_integer
+        site_id: nullable_integer
+        before_value: optional_object
+        after_value: optional_object
+      response_rules:
+        changed_by_login_id: 操作ユーザーのlogin_idを返す
+        target_display_name: target_typeに対応する企業名、現場名、デバイス名、ユーザー名などを返す
+        created_at_format: ISO 8601。UI表示時にyyyy:MM:dd HH:mm:ssへ変換する
 
   # ===========================================================================
   # 13. AUTHORIZATION SCOPE RULES

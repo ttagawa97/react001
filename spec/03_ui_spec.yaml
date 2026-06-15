@@ -6,10 +6,10 @@
 #   03_ui_spec.yaml
 #
 # Spec Version:
-#   1.9.0
+#   2.1.0
 #
 # Last Updated:
-#   2026-06-01
+#   2026-06-15
 #
 # Revision:
 #   - 企業マスタ管理画面 company_settings を追加
@@ -33,7 +33,7 @@ ui_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 1.9.0
+    spec_version: 2.1.0
     document_type: ui_specification
     depends_on:
       - 01_overall_spec.yaml
@@ -47,14 +47,16 @@ ui_spec:
 
   global:
     framework: React
-    language: TypeScript
+    language: JavaScript ES Modules
     ui_library: Chakra UI
     chart_library: Chart.js
     chart_wrapper: react-chartjs-2
     target_device: desktop_browser
     responsive: minimal
     auto_refresh: false
-    design_style: simple_admin_console
+    design_style: dark_sensorix_admin_console
+    routing: React state based screen switching without React Router
+    http_client: browser_fetch
 
   # ===========================================================================
   # 03. COMMON LAYOUT
@@ -67,6 +69,18 @@ ui_spec:
       show_system_name: true
       show_login_user: true
       show_logout_button: true
+      branding:
+        logo_asset: src/assets/sensorix_logo.png
+        logo_alt: Sensorix
+        background: near_black
+
+    authenticated_session:
+      storage: sessionStorage
+      token_key: iot_platform_auth_token
+      user_key: iot_platform_auth_user
+      reload_behavior: restore token, user, role and scope without logging out
+      expiration_behavior: decode JWT exp when present and clear an expired session
+      logout_behavior: call logout API when possible, then always clear both storage keys
 
     sidebar:
       enabled: true
@@ -128,6 +142,9 @@ ui_spec:
       - company_id
       - site_id
     enabled_rule_ref: 01_overall_spec.common_filter_policy.enabled_rule
+    field_widths:
+      company_id: 220px
+      site_id: 220px
 
   common_table_component:
     applies_to:
@@ -161,7 +178,7 @@ ui_spec:
       - { id: T001, from: login, event: login_success, to: dashboard }
       - { id: T002, from: login, event: click_password_reset, to: password_reset }
       - { id: T003, from: password_reset, event: back_to_login, to: login }
-      - { id: T004, from: devices, event: click_device_row, to: device_graph }
+      - { id: T004, from: devices, event: double_click_device_row, to: device_graph }
       - { id: T005, from: device_graph, event: click_back, to: devices }
       - { id: T006, from: common_sidebar, event: click_company_settings, to: company_settings }
       - { id: T007, from: common_sidebar, event: click_site_settings, to: site_settings }
@@ -170,6 +187,8 @@ ui_spec:
       - { id: T010, from: common_sidebar, event: click_threshold_settings, to: threshold_settings }
       - { id: T011, from: common_sidebar, event: click_audit_logs, to: audit_logs }
       - { id: T012, from: any_authenticated_screen, event: logout, to: login }
+      - { id: T013, from: browser_reload, event: valid_session_found, to: dashboard }
+      - { id: T014, from: browser_reload, event: missing_or_expired_session, to: login }
 
   # ===========================================================================
   # 06. SCREENS
@@ -186,6 +205,11 @@ ui_spec:
       layout: centered_card
       authentication_required: false
       components:
+        - id: logo
+          type: Image
+          asset: src/assets/sensorix_logo.png
+          alt: Sensorix
+
         - id: login_id
           type: Input
           label: ログインID
@@ -202,6 +226,8 @@ ui_spec:
           label: ログイン
           action: call_login_api
           success_flow:
+            - store_auth_token_in_session_storage
+            - store_authenticated_user_in_session_storage
             - set_authenticated_user_role
             - set_authenticated_user_scope
             - load_initial_data_by_authenticated_role
@@ -226,10 +252,29 @@ ui_spec:
           label: ログインID
           required: true
 
-        - id: send_reset_mail_button
+        - id: new_password
+          type: Input
+          input_type: password
+          label: 新しいパスワード
+          required: true
+
+        - id: confirm_password
+          type: Input
+          input_type: password
+          label: 新しいパスワード（確認）
+          required: true
+          implementation_status: displayed_only
+
+        - id: execute_password_reset_button
           type: Button
-          label: 再発行メール送信
-          action: call_password_reset_request_api
+          label: パスワードを再設定
+          action: call_password_reset_execute_api
+          api:
+            method: POST
+            endpoint: /auth/password-reset/execute
+            request_fields:
+              - login_id
+              - new_password
 
         - id: back_to_login_link
           type: Link
@@ -253,11 +298,30 @@ ui_spec:
         - id: summary_cards
           type: SimpleGrid
           items:
-            - total_sites
-            - total_devices
-            - normal_devices
-            - disconnected_devices
-            - threshold_alert_devices
+            - { id: total_sites, label: 現場数 }
+            - { id: total_devices, label: 総デバイス数 }
+            - { id: normal_devices, label: 正常台数 }
+            - { id: disconnected_devices, label: 通信停止台数 }
+            - { id: threshold_alert_devices, label: アラート台数 }
+
+        - id: time_series_overview
+          type: BarChartMock
+          bar_count: 12
+          purpose: parsed_data / 1min / 1hour の表示イメージ
+
+        - id: permission_hierarchy
+          type: OrderedList
+          items:
+            - 企業
+            - 現場
+            - デバイス
+            - データ項目
+            - 閾値
+
+        - id: device_preview
+          type: DeviceLatestTable
+          max_rows: 3
+          datasource: filtered_device_latest_data
 
     # -------------------------------------------------------------------------
     # 06-04. DEVICES SCREEN
@@ -283,27 +347,37 @@ ui_spec:
         - id: device_latest_table
           type: Table
           datasource: GET /devices/latest
-          row_click_action: navigate_device_graph
+          interaction:
+            click_row:
+              action: select_device_row
+            double_click_row:
+              action: navigate_device_graph
           layout:
             column_width_policy: fixed
-            min_width_px: 1080
+            min_width_px: 1180
           columns:
             - id: company_name
-              width: 14%
+              width: 12%
             - id: site_name
-              width: 14%
+              width: 12%
             - id: device_name
-              width: 18%
+              width: 17%
             - id: device_id
-              width: 13%
+              width: 12%
             - id: latest_values
-              width: 16%
+              width: 14%
             - id: latest_received_at
-              width: 13%
+              width: 15%
+              format: yyyy/MM/dd HH:mm:ss
             - id: communication_status
-              width: 6%
+              width: 9%
+              display_values:
+                online: 稼働
+                offline: 停止
+                unknown: 不明
             - id: alert_status
-              width: 6%
+              width: 9%
+              calculation_ref: 01_overall_spec.threshold_rules.current_status
 
     # -------------------------------------------------------------------------
     # 06-05. DEVICE GRAPH SCREEN
@@ -315,10 +389,7 @@ ui_spec:
       authentication_required: true
       purpose: 選択デバイスのカラム別グラフ・データ時系列表示
       filter:
-        use_common_filter: true
-        fields:
-          - company_id
-          - site_id
+        use_common_filter: false
       components:
         - id: display_tabs
           type: Tabs
@@ -326,6 +397,17 @@ ui_spec:
           items:
             - { label: グラフ表示, value: graph }
             - { label: 時系列表示, value: time_series }
+
+        - id: device_summary
+          type: SummaryCards
+          items:
+            - id: communication_status
+              detail: 最終受信日時
+            - id: latest_values
+              detail: GET /devices/{device_id}/graph
+            - id: threshold_status
+              detail: カラム別に閾値線と超過点を表示
+          threshold_status_rule: 最後の有効なグラフ値を優先し、なければ latest_values を使用して閾値判定する
 
         - id: graph_filter_area
           type: HStack
@@ -386,6 +468,9 @@ ui_spec:
             show_all_column_thresholds: true
             show_threshold_exceeded_points: true
             show_invalid_data: false
+          period_select_style:
+            background: dark_contrast
+            text_color: light
 
         - id: time_series_filter_area
           type: HStack
@@ -456,8 +541,10 @@ ui_spec:
               action: open_company_form_modal
               mode: update
           columns:
+            - company_id
             - company_name
             - status
+            - site_count
             - created_at
             - updated_at
 
@@ -540,10 +627,6 @@ ui_spec:
         - id: site_table
           type: Table
           datasource: GET /sites
-          interaction:
-            double_click_row:
-              action: open_site_form_modal
-              mode: update
           columns:
             - company_name
             - site_name
@@ -562,10 +645,8 @@ ui_spec:
           type: ModalForm
           usage:
             - create
-            - update
           title_rule:
             create: 現場追加
-            update: 現場変更
           fields:
             - id: company_id
               type: Select
@@ -633,8 +714,6 @@ ui_spec:
             - company_name
             - site_name
             - status
-            - created_at
-            - updated_at
 
         - id: add_user_button
           type: Button
@@ -696,6 +775,14 @@ ui_spec:
               label: ユーザー名
               required: true
 
+            - id: status
+              type: Select
+              label: ステータス
+              required: true
+              options:
+                - active
+                - inactive
+
             - id: password
               type: Input
               input_type: password
@@ -748,7 +835,21 @@ ui_spec:
             - device_name
             - device_id
             - input_type
+            - column_count
             - status
+
+        - id: device_column_preview
+          type: DeviceCardGrid
+          max_device_cards: 3
+          card_title: device_name
+          card_detail: site_name / device_id
+          columns:
+            - column_name
+            - display_name
+            - data_type
+            - unit
+            - weight
+            - display_order
 
         - id: add_device_button
           type: Button
@@ -922,10 +1023,6 @@ ui_spec:
             - site_id
             - device_id
             - column_name
-          interaction:
-            double_click_row:
-              action: open_threshold_form_modal
-              mode: update
           columns:
             - company_name
             - site_name
@@ -949,7 +1046,8 @@ ui_spec:
           type: ModalForm
           usage:
             - create
-            - update
+          title_rule:
+            create: 閾値追加
           fields:
             - id: company_id
               type: HiddenOrSelect
@@ -1013,12 +1111,19 @@ ui_spec:
           type: Table
           datasource: GET /audit-logs
           columns:
-            - changed_at
-            - changed_by
-            - company_name
-            - site_name
+            - id: changed_at
+              label: 日時
+              format: yyyy:MM:dd HH:mm:ss
+            - id: changed_by_login_id
+              label: ユーザー
             - action
-            - target_type
-            - target_id
-            - before_value
-            - after_value
+            - id: target_display_name
+              label: 対象
+          projection_rules:
+            changed_by_login_id: changed_by_user.login_id を優先し、なければ changed_by または user_id を表示する
+            target_display_name: target_type に応じて企業名、現場名、デバイス名、ユーザー名などの名称を表示し、解決不能時は target_id を表示する
+
+        - id: export_csv_button
+          type: Button
+          label: CSV出力
+          implementation_status: visual_only
