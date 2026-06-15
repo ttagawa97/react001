@@ -896,11 +896,23 @@ ui_spec:
         fields:
           - company_id
           - site_id
+          - device_id
           - column_name
+        field_widths:
+          company_id: 220px
+          site_id: 220px
+          device_id: 320px
+          column_name: 240px
+        device_id:
+          type: Select
+          label: デバイス
+          datasource: GET /devices options scoped by company_id/site_id
+          selection_required_before: column_name
         column_name:
           type: Select
           label: カラム
-          datasource: GET /thresholds column_name options scoped by company_id/site_id
+          datasource: selected device columns from GET /devices
+          scope: company_id/site_id/device_id
       components:
         - id: threshold_table
           type: Table
@@ -908,6 +920,7 @@ ui_spec:
           filter_by:
             - company_id
             - site_id
+            - device_id
             - column_name
           interaction:
             double_click_row:
@@ -948,7 +961,7 @@ ui_spec:
 
             - id: device_id
               type: HiddenOrSelect
-              source: form_device_selector.device_id
+              source: threshold_filter.device_id
 
             - id: column_name
               type: HiddenOrSelect

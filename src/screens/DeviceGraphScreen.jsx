@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { CommonFilter } from '../components/CommonFilter'
 import { ApiErrorBanner, LoadingStrip } from '../components/Feedback'
 import { StatusBadge } from '../components/Badges'
 import { FilterPanel, InputField, SelectField } from '../components/FormFields'
@@ -61,7 +60,7 @@ function getRangeParams(period, startDatetime, endDatetime) {
   }
 }
 
-export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack }) {
+export function DeviceGraphScreen({ device, onBack }) {
   const today = getTodayDate()
   const [activeTab, setActiveTab] = useState('graph')
   const [period, setPeriod] = useState('24h')
@@ -205,8 +204,6 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
           )}
         </div>
       </div>
-
-      <CommonFilter role={role} filter={filter} onChange={onFilterChange} />
 
       <section className="graph-summary">
         <article className="metric-card compact">

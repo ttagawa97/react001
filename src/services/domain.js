@@ -27,6 +27,7 @@ const seedAuditLogs = auditLogs.map((log) => ({ ...log }))
 
 export function asArray(value) {
   if (Array.isArray(value)) return value
+  if (Array.isArray(value?.results)) return value.results
   if (Array.isArray(value?.items)) return value.items
   if (Array.isArray(value?.companies)) return value.companies
   if (Array.isArray(value?.sites)) return value.sites
@@ -34,6 +35,7 @@ export function asArray(value) {
   if (Array.isArray(value?.devices)) return value.devices
   if (Array.isArray(value?.thresholds)) return value.thresholds
   if (Array.isArray(value?.logs)) return value.logs
+  if (Array.isArray(value?.audit_logs)) return value.audit_logs
   return []
 }
 
@@ -271,14 +273,97 @@ export function normalizeUser(user) {
   }
 }
 
+function getAuditUserLoginId(log) {
+  const source = log.changed_by ?? log.user ?? log.user_id
+  if (source && typeof source === 'object') {
+    return source.login_id ?? source.loginId ?? source.username ?? source.id
+  }
+
+  const directLoginId = log.login_id ?? log.loginId ?? log.username
+  if (directLoginId) return directLoginId
+
+  const normalizedUserId = normalizeId(source)
+  return users.find((user) => user.id === normalizedUserId)?.loginId ?? normalizedUserId
+}
+
+function normalizeAuditTargetType(value, action) {
+  const type = String(value ?? '').toLowerCase()
+  if (type.includes('company')) return 'company'
+  if (type.includes('site')) return 'site'
+  if (type.includes('device')) return 'device'
+  if (type.includes('user')) return 'user'
+  if (type.includes('threshold')) return 'threshold'
+  if (action?.startsWith('company_')) return 'company'
+  if (action?.startsWith('site_')) return 'site'
+  if (action?.startsWith('device_')) return 'device'
+  if (action?.startsWith('user_')) return 'user'
+  if (action?.startsWith('threshold_')) return 'threshold'
+  return type
+}
+
+function getAuditTargetId(log) {
+  const source = log.target_id ?? log.targetId ?? log.target
+  if (source && typeof source === 'object') {
+    return normalizeId(source.id ?? source.device_id ?? source.login_id)
+  }
+  return normalizeId(source)
+}
+
+function getAuditTargetLabel(log, targetType, targetId) {
+  const typedName = {
+    company: log.company_name,
+    site: log.site_name,
+    device: log.device_name,
+    user: log.user_name,
+    threshold: log.threshold_name,
+  }[targetType]
+  const directName = log.target_name ?? log.targetName ?? typedName
+  if (directName) return directName
+  if (!targetId) return '-'
+
+  if (targetType === 'company') {
+    return companies.find((company) => company.id === targetId)?.name ?? targetId
+  }
+  if (targetType === 'site') {
+    return sites.find((site) => site.id === targetId)?.name ?? targetId
+  }
+  if (targetType === 'device') {
+    return devices.find((device) => device.id === targetId || device.apiId === targetId)?.name ?? targetId
+  }
+  if (targetType === 'user') {
+    const user = users.find((candidate) => candidate.id === targetId || candidate.loginId === targetId)
+    return user?.userName ?? targetId
+  }
+  if (targetType === 'threshold') {
+    const [deviceId, columnName] = String(targetId).split(/\s*\/\s*/, 2)
+    const device = devices.find((candidate) => candidate.id === deviceId || candidate.apiId === deviceId)
+    return device ? `${device.name}${columnName ? ` / ${columnName}` : ''}` : targetId
+  }
+
+  return targetId
+}
+
+function getRelationId(value) {
+  if (value && typeof value === 'object') {
+    return normalizeId(value.id ?? value.company_id ?? value.site_id)
+  }
+  return normalizeId(value)
+}
+
 export function normalizeAuditLog(log) {
+  const action = log.action ?? log.event ?? log.operation
+  const targetType = normalizeAuditTargetType(log.target_type ?? log.targetType, action)
+  const targetId = getAuditTargetId(log)
+
   return {
-    at: log.at ?? log.created_at ?? log.occurred_at,
-    user: log.user ?? log.login_id ?? log.user_name,
-    companyId: normalizeId(log.companyId ?? log.company_id ?? log.company),
-    siteId: normalizeId(log.siteId ?? log.site_id ?? log.site),
-    action: log.action,
-    target: log.target,
+    at: log.at ?? log.changed_at ?? log.created_at ?? log.occurred_at,
+    user: getAuditUserLoginId(log) ?? '-',
+    companyId: getRelationId(log.companyId ?? log.company_id ?? log.company),
+    siteId: getRelationId(log.siteId ?? log.site_id ?? log.site),
+    action: action ?? '-',
+    targetType,
+    targetId,
+    target: getAuditTargetLabel(log, targetType, targetId),
   }
 }
 

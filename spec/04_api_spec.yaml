@@ -639,7 +639,10 @@ api_spec:
       query:
         company_id: optional_integer
         site_id: optional_integer
+        device_id: optional_string
         column_name: optional_string
+      query_rules:
+        device_id: デバイス管理IDを指定し、閾値設定画面ではカラム選択より先に選択する
       response:
         id: integer
         company: integer

@@ -10,29 +10,52 @@ import { formatApiError, getDevice, getSite, getCompany, getThresholdRows, loadI
 
 export function ThresholdScreen({ role, filter, onFilterChange, onDataChanged, onError }) {
   const scopedDevices = devices.filter((device) => matchesFilter(device, filter))
-  const columnOptions = scopedDevices
-    .flatMap((device) => device.columns)
-    .filter((column, index, columns) => columns.findIndex((item) => item.key === column.key) === index)
+  const [deviceId, setDeviceId] = useState(scopedDevices[0]?.id ?? '')
+  const safeDeviceId = scopedDevices.some((device) => device.id === deviceId)
+    ? deviceId
+    : scopedDevices[0]?.id ?? ''
+  const selectedDevice = getDevice(safeDeviceId)
+  const columnOptions = selectedDevice?.columns ?? []
   const [columnKey, setColumnKey] = useState(columnOptions[0]?.key ?? '')
   const [isThresholdFormOpen, setIsThresholdFormOpen] = useState(false)
   const safeColumnKey = columnOptions.some((column) => column.key === columnKey)
     ? columnKey
     : columnOptions[0]?.key ?? ''
   const rows = getThresholdRows(scopedDevices).filter((row) => (
-    !safeColumnKey || row.columnKey === safeColumnKey
+    (!safeDeviceId || row.deviceId === safeDeviceId) &&
+    (!safeColumnKey || row.columnKey === safeColumnKey)
   ))
+
+  function changeDevice(nextDeviceId) {
+    const nextDevice = getDevice(nextDeviceId)
+    setDeviceId(nextDeviceId)
+    setColumnKey(nextDevice?.columns[0]?.key ?? '')
+  }
 
   return (
     <div className="screen-stack">
       <Toolbar
         title="閾値設定"
         action="閾値を追加"
-        detail="共通絞り込みにカラム選択を追加し、データ項目単位で閾値を管理します。"
+        detail="企業・現場・デバイス・カラムを選択し、データ項目単位で閾値を管理します。"
         onAction={() => setIsThresholdFormOpen(true)}
       />
       <CommonFilter role={role} filter={filter} onChange={onFilterChange} />
       <FilterPanel>
-        <SelectField label="カラム" value={safeColumnKey} onChange={setColumnKey}>
+        <SelectField
+          label="デバイス"
+          value={safeDeviceId}
+          onChange={changeDevice}
+          formControlProps={{ flex: '0 0 320px', minW: '260px', maxW: '320px' }}
+        >
+          {scopedDevices.map((device) => <option key={device.id} value={device.id}>{device.name}</option>)}
+        </SelectField>
+        <SelectField
+          label="カラム"
+          value={safeColumnKey}
+          onChange={setColumnKey}
+          formControlProps={{ flex: '0 0 240px', minW: '200px', maxW: '240px' }}
+        >
           {columnOptions.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
         </SelectField>
       </FilterPanel>
@@ -44,6 +67,7 @@ export function ThresholdScreen({ role, filter, onFilterChange, onDataChanged, o
         <ThresholdFormModal
           role={role}
           filter={filter}
+          selectedDeviceId={safeDeviceId}
           selectedColumnKey={safeColumnKey}
           onDataChanged={onDataChanged}
           onError={onError}
@@ -54,13 +78,19 @@ export function ThresholdScreen({ role, filter, onFilterChange, onDataChanged, o
   )
 }
 
-function ThresholdFormModal({ role, filter, selectedColumnKey, onDataChanged, onError, onClose }) {
+function ThresholdFormModal({ role, filter, selectedDeviceId, selectedColumnKey, onDataChanged, onError, onClose }) {
   const profile = roleProfiles[role]
   const initialCompanyId = profile.companyId ?? (filter.companyId === 'all' ? companies[0].id : filter.companyId)
   const initialSiteId = profile.siteId ?? (filter.siteId === 'all'
     ? sites.find((site) => site.companyId === initialCompanyId)?.id ?? ''
     : filter.siteId)
-  const initialDeviceId = devices.find((device) => device.companyId === initialCompanyId && device.siteId === initialSiteId)?.id ?? ''
+  const initialDeviceId = devices.some((device) => (
+    device.id === selectedDeviceId &&
+    device.companyId === initialCompanyId &&
+    device.siteId === initialSiteId
+  ))
+    ? selectedDeviceId
+    : devices.find((device) => device.companyId === initialCompanyId && device.siteId === initialSiteId)?.id ?? ''
   const initialColumnKey = selectedColumnKey || getDevice(initialDeviceId)?.columns[0]?.key || ''
   const [companyId, setCompanyId] = useState(initialCompanyId)
   const [siteId, setSiteId] = useState(initialSiteId)

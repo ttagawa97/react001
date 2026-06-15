@@ -4,10 +4,30 @@ import { Toolbar } from '../components/Toolbar'
 import { auditLogs } from '../data/store'
 import { matchesFilter } from '../services/domain'
 
+function formatAuditDateTime(value) {
+  if (!value) return '-'
+  const normalizedValue = typeof value === 'string' ? value.replace(' ', 'T') : value
+  const date = new Date(normalizedValue)
+  if (Number.isNaN(date.getTime())) return value
+
+  const parts = new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const part = (type) => parts.find((item) => item.type === type)?.value ?? ''
+
+  return `${part('year')}:${part('month')}:${part('day')} ${part('hour')}:${part('minute')}:${part('second')}`
+}
+
 export function AuditLogScreen({ role, filter, onFilterChange }) {
   const rows = auditLogs
     .filter((log) => matchesFilter(log, filter))
-    .map((log) => [log.at, log.user, log.action, log.target])
+    .map((log) => [formatAuditDateTime(log.at), log.user, log.action, log.target])
 
   return (
     <div className="screen-stack">
