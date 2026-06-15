@@ -77,7 +77,7 @@ export function DeviceGraphScreen({ device, onBack }) {
 
   const fetchGraphColumns = useCallback(async (rangeParams) => {
     const [graphData, thresholdData] = await Promise.all([
-      api.getDeviceGraph(device.apiId ?? device.id, rangeParams),
+      api.getDeviceGraph(device.id, rangeParams),
       api.listThresholds({
         company_id: device.companyId,
         site_id: device.siteId,
@@ -134,7 +134,7 @@ export function DeviceGraphScreen({ device, onBack }) {
     setError('')
     try {
       const graphData = await api.getDeviceGraph(
-        device.apiId ?? device.id,
+        device.id,
         getDateRangeParams(startDate, endDate),
       )
       setTimeSeriesColumns(applyGraphData(device, graphData))
