@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Box, Button, Flex, Heading, Select, Text } from '@chakra-ui/react'
+import { useEffect, useState } from 'react'
+import { Box, Button, Flex, Select, Text } from '@chakra-ui/react'
 import { api } from './api'
+import sensorixLogo from './assets/sensorix_logo.png'
 import { ApiErrorBanner, LoadingStrip } from './components/Feedback'
 import { Icon } from './components/Icon'
 import { menuGroups, menuItems, menuVisibility, roleLabels, roleProfiles, updateRoleProfile } from './data/constants'
@@ -17,6 +18,8 @@ import { ThresholdScreen } from './screens/ThresholdScreen'
 import { UsersScreen } from './screens/UsersScreen'
 import { formatApiError, getDevice, getScopeDefaults, loadInitialData, matchesFilter, normalizeFilter } from './services/domain'
 import './App.css'
+
+const AUTH_USER_STORAGE_KEY = 'iot_platform_auth_user'
 
 function decodeJwtPayload(token) {
   if (!token || typeof token !== 'string' || token.split('.').length < 2) return null
@@ -52,8 +55,26 @@ function normalizeAuthUser(result, loginId) {
   }
 }
 
+function readStoredAuthUser() {
+  try {
+    const storedUser = JSON.parse(sessionStorage.getItem(AUTH_USER_STORAGE_KEY))
+    return storedUser && roleLabels[storedUser.roleId] ? storedUser : null
+  } catch {
+    return null
+  }
+}
+
+function storeAuthUser(authUser) {
+  sessionStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(authUser))
+}
+
+function clearStoredAuthUser() {
+  sessionStorage.removeItem(AUTH_USER_STORAGE_KEY)
+}
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isRestoringSession, setIsRestoringSession] = useState(true)
   const [activeScreen, setActiveScreen] = useState('dashboard')
   const [role, setRole] = useState('system_admin')
   const [filter, setFilter] = useState(getScopeDefaults('system_admin'))
@@ -75,6 +96,55 @@ function App() {
     ? '時系列グラフ'
     : menuItems.find((item) => item.id === activeScreen)?.label
   const selectedDevice = getDevice(selectedDeviceId) ?? devices.find((device) => matchesFilter(device, filter)) ?? devices[0] ?? null
+
+  useEffect(() => {
+    async function restoreSession() {
+      const token = api.getAuthToken()
+      const tokenPayload = decodeJwtPayload(token)
+      const storedUser = readStoredAuthUser()
+      const authUser = storedUser ?? (tokenPayload ? normalizeAuthUser({ token }) : null)
+
+      if (!token || !authUser) {
+        api.clearAuthToken()
+        clearStoredAuthUser()
+        setIsRestoringSession(false)
+        return
+      }
+
+      if (tokenPayload?.exp && tokenPayload.exp * 1000 <= Date.now()) {
+        api.clearAuthToken()
+        clearStoredAuthUser()
+        setIsRestoringSession(false)
+        return
+      }
+
+      updateRoleProfile(authUser.roleId, {
+        loginId: authUser.loginId,
+        companyId: authUser.companyId,
+        siteId: authUser.siteId,
+      })
+      setRole(authUser.roleId)
+      setIsLoadingData(true)
+
+      try {
+        await loadInitialData(authUser.roleId)
+        const nextFilter = getScopeDefaults(authUser.roleId)
+        setFilter(nextFilter)
+        setSelectedDeviceId(devices.find((device) => matchesFilter(device, nextFilter))?.id ?? devices[0]?.id ?? '')
+        setDataVersion((version) => version + 1)
+        setIsLoggedIn(true)
+      } catch (error) {
+        api.clearAuthToken()
+        clearStoredAuthUser()
+        setAppError(formatApiError(error))
+      } finally {
+        setIsLoadingData(false)
+        setIsRestoringSession(false)
+      }
+    }
+
+    restoreSession()
+  }, [])
 
   function applyFilter(nextFilter) {
     const normalized = normalizeFilter(role, nextFilter)
@@ -114,6 +184,12 @@ function App() {
         })
         setRole(nextRole)
       }
+      storeAuthUser({
+        loginId: authUser.loginId,
+        roleId: nextRole,
+        companyId: loadedUser?.companyId ?? authUser.companyId,
+        siteId: loadedUser?.siteId ?? authUser.siteId,
+      })
       const nextFilter = getScopeDefaults(nextRole)
       setFilter(nextFilter)
       setSelectedDeviceId(devices.find((device) => matchesFilter(device, nextFilter))?.id ?? devices[0]?.id ?? '')
@@ -135,6 +211,7 @@ function App() {
     } catch (error) {
       setAppError(formatApiError(error))
     } finally {
+      clearStoredAuthUser()
       setActiveScreen('dashboard')
       setIsLoggedIn(false)
     }
@@ -148,6 +225,16 @@ function App() {
     setAppError('')
   }
 
+  if (isRestoringSession) {
+    return (
+      <Box className="login-screen" as="main">
+        <Box width="min(560px, 100%)">
+          <LoadingStrip>ログインセッションを復元しています...</LoadingStrip>
+        </Box>
+      </Box>
+    )
+  }
+
   if (!isLoggedIn) {
     return <LoginScreen error={appError} isSubmitting={isLoadingData} onClearError={clearAppError} onLogin={login} />
   }
@@ -157,24 +244,13 @@ function App() {
       <Box
         as="aside"
         className="sidebar"
-        bg="linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(244,248,255,0.7) 100%)"
-        borderRight="1px solid rgba(255,255,255,0.65)"
-        boxShadow="0 18px 60px rgba(111, 129, 174, 0.14)"
+        bg="linear-gradient(180deg, rgba(5,7,11,0.98) 0%, rgba(8,13,23,0.96) 100%)"
+        borderRight="1px solid rgba(83, 111, 154, 0.24)"
+        boxShadow="12px 0 40px rgba(0, 0, 0, 0.3)"
         backdropFilter="blur(22px)"
       >
         <Flex className="brand" align="center" gap="3">
-          <Box
-            className="brand-mark"
-            bg="linear-gradient(135deg, #d8e4ff 0%, #bfeee2 100%)"
-            color="brand.800"
-            boxShadow="inset 0 1px 0 rgba(255,255,255,0.7)"
-          >
-            IP
-          </Box>
-          <Box className="brand-copy">
-            <Heading as="strong" size="sm">iot_platform</Heading>
-            <Text fontSize="xs" color="gray.500" mt="1">authority scoped mock</Text>
-          </Box>
+          <img className="brand-logo" src={sensorixLogo} alt="Sensorix" />
           <Button
             aria-label={isSidebarCollapsed ? 'メニューを開く' : 'メニューを閉じる'}
             aria-expanded={!isSidebarCollapsed}
@@ -183,9 +259,11 @@ function App() {
             variant="ghost"
             onClick={() => setIsSidebarCollapsed((current) => !current)}
           >
-            <span />
-            <span />
-            <span />
+            <span className="hamburger-icon" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
           </Button>
         </Flex>
 
@@ -216,8 +294,8 @@ function App() {
         <Flex
           as="header"
           className="topbar"
-          bg="rgba(255, 255, 255, 0.62)"
-          borderBottom="1px solid rgba(255,255,255,0.7)"
+          bg="rgba(8, 13, 23, 0.82)"
+          borderBottom="1px solid rgba(83, 111, 154, 0.22)"
           backdropFilter="blur(24px)"
         >
           <Box>

@@ -58,6 +58,8 @@ function setAuthToken(token) {
 }
 
 export const api = {
+  getAuthToken: () => authToken,
+  clearAuthToken: () => setAuthToken(''),
   login: async (body) => {
     const result = await request('/auth/login', { method: 'POST', body })
     setAuthToken(result?.token)

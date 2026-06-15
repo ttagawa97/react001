@@ -161,9 +161,9 @@ export function normalizeDevice(device) {
   }
 }
 
-function findDeviceIdByApiId(deviceApiId) {
+function findDeviceIdByApiId(deviceApiId, sourceDevices = devices) {
   const normalizedDeviceApiId = normalizeId(deviceApiId)
-  return devices.find((device) => device.apiId === normalizedDeviceApiId)?.id
+  return sourceDevices.find((device) => device.apiId === normalizedDeviceApiId)?.id
 }
 
 function mergeLatestDeviceData(sourceDevices, latestDevices) {
@@ -207,14 +207,16 @@ export function normalizeAuditLog(log) {
   }
 }
 
-export function normalizeThreshold(threshold) {
+export function normalizeThreshold(threshold, sourceDevices = devices) {
   const deviceApiId = normalizeId(threshold.deviceApiId ?? threshold.device)
 
   return {
     id: normalizeId(threshold.id ?? threshold.threshold_id),
     companyId: normalizeId(threshold.companyId ?? threshold.company_id ?? threshold.company),
     siteId: normalizeId(threshold.siteId ?? threshold.site_id ?? threshold.site),
-    deviceId: normalizeId(threshold.deviceId ?? threshold.device_id) ?? findDeviceIdByApiId(deviceApiId) ?? deviceApiId,
+    deviceId: normalizeId(threshold.deviceId ?? threshold.device_id)
+      ?? findDeviceIdByApiId(deviceApiId, sourceDevices)
+      ?? deviceApiId,
     deviceApiId,
     columnKey: threshold.columnKey ?? threshold.column_name,
     name: threshold.name ?? threshold.threshold_name,
@@ -249,7 +251,7 @@ function attachThresholdsToDevices(sourceDevices, sourceThresholds) {
 
 export function applyThresholdData(device, thresholdData) {
   if (!device) return device
-  const normalizedThresholds = asArray(thresholdData).map(normalizeThreshold)
+  const normalizedThresholds = asArray(thresholdData).map((threshold) => normalizeThreshold(threshold, [device]))
   return attachThresholdsToDevices([device], normalizedThresholds)[0]
 }
 
@@ -290,7 +292,8 @@ export async function loadInitialData(role = 'system_admin') {
 
   const normalizedDevices = asArray(fallbackWhenEmpty(deviceData, seedDevices)).map(normalizeDevice)
   const normalizedLatestDevices = asArray(latestDeviceData).map(normalizeDevice)
-  const normalizedThresholds = asArray(fallbackWhenEmpty(thresholdData, seedThresholds)).map(normalizeThreshold)
+  const normalizedThresholds = asArray(fallbackWhenEmpty(thresholdData, seedThresholds))
+    .map((threshold) => normalizeThreshold(threshold, normalizedDevices))
 
   replaceCollection(devices, attachThresholdsToDevices(
     mergeLatestDeviceData(normalizedDevices, normalizedLatestDevices),

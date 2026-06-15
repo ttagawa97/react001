@@ -56,14 +56,14 @@ export function CommonFilter({ role, filter, onChange }) {
         flex="0 0 180px"
         minW="180px"
         maxW="180px"
-        bg="rgba(244, 247, 255, 0.86)"
-        borderColor="brand.100"
+        bg="rgba(8, 13, 23, 0.74)"
+        borderColor="whiteAlpha.200"
         borderRadius="18px"
         px="4"
         py="3"
       >
         <Text color="gray.500" fontSize="11px" fontWeight="700">適用権限</Text>
-        <Text color="brand.700" fontSize="sm" fontWeight="700">{roleLabels[role]}</Text>
+        <Text color="cyan.300" fontSize="sm" fontWeight="700">{roleLabels[role]}</Text>
       </Box>
     </FilterPanel>
   )

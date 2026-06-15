@@ -64,11 +64,11 @@ export function Table({ headers, rows, compact = false, className = '', columnWi
   return (
     <TableContainer
       className={['table-panel', compact ? 'compact-table' : '', className].filter(Boolean).join(' ')}
-      bg="rgba(255, 255, 255, 0.84)"
+      bg="rgba(18, 27, 43, 0.92)"
       border="1px solid"
-      borderColor="whiteAlpha.700"
+      borderColor="whiteAlpha.200"
       borderRadius="28px"
-      boxShadow="0 18px 55px rgba(124, 145, 191, 0.12)"
+      boxShadow="0 18px 55px rgba(0, 0, 0, 0.22)"
       backdropFilter="blur(18px)"
       overflowX="auto"
       {...containerProps}
@@ -86,8 +86,8 @@ export function Table({ headers, rows, compact = false, className = '', columnWi
             {headers.map((header, index) => (
               <Th
                 key={header}
-                bg="rgba(245, 247, 255, 0.95)"
-                color="gray.500"
+                bg="rgba(8, 13, 23, 0.96)"
+                color="gray.400"
                 fontSize="11px"
                 fontWeight="800"
                 letterSpacing="0.04em"
@@ -129,10 +129,10 @@ export function Table({ headers, rows, compact = false, className = '', columnWi
               onClick={row.onClick}
               onDoubleClick={row.onDoubleClick}
               tabIndex={row.onDoubleClick ? 0 : undefined}
-              _hover={row.onDoubleClick ? { bg: 'rgba(237, 247, 244, 0.95)' } : undefined}
+              _hover={row.onDoubleClick ? { bg: 'whiteAlpha.100' } : undefined}
             >
               {getRowCells(row).map((cell, cellIndex) => (
-                <Td key={`${index}-${cellIndex}`} color="gray.700" py={compact ? '3' : '4'}>{cell}</Td>
+                <Td key={`${index}-${cellIndex}`} color="gray.200" py={compact ? '3' : '4'}>{cell}</Td>
               ))}
             </Tr>
           ))}

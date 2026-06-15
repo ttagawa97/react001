@@ -7,9 +7,9 @@ export function ApiErrorBanner({ message, onClose }) {
       variant="subtle"
       borderRadius="24px"
       border="1px solid"
-      borderColor="red.100"
-      bg="rgba(255, 245, 245, 0.95)"
-      color="red.700"
+      borderColor="red.700"
+      bg="rgba(69, 10, 10, 0.92)"
+      color="red.100"
       alignItems="center"
       justifyContent="space-between"
       gap="3"
@@ -32,15 +32,15 @@ export function LoadingStrip({ children = 'APIからデータを取得してい�
     <Box mx={{ base: 4, md: 7 }} mt="4">
       <Box
         border="1px solid"
-        borderColor="brand.100"
-        bg="rgba(255, 255, 255, 0.82)"
+        borderColor="whiteAlpha.200"
+        bg="rgba(18, 27, 43, 0.94)"
         borderRadius="24px"
         px="5"
         py="4"
         backdropFilter="blur(14px)"
       >
-        <Box color="brand.700" fontWeight="700" mb="3">{children}</Box>
-        <Progress value={78} size="xs" colorScheme="purple" borderRadius="full" bg="brand.50" isIndeterminate />
+        <Box color="cyan.200" fontWeight="700" mb="3">{children}</Box>
+        <Progress value={78} size="xs" colorScheme="cyan" borderRadius="full" bg="whiteAlpha.100" isIndeterminate />
       </Box>
     </Box>
   )

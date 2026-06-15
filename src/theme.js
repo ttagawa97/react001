@@ -1,6 +1,6 @@
 import { extendTheme } from '@chakra-ui/react'
 
-const pastelTheme = extendTheme({
+const darkTheme = extendTheme({
   fonts: {
     heading: "'Avenir Next', 'Segoe UI', sans-serif",
     body: "'Avenir Next', 'Segoe UI', sans-serif",
@@ -46,9 +46,8 @@ const pastelTheme = extendTheme({
   styles: {
     global: {
       'html, body': {
-        background:
-          'linear-gradient(180deg, #f8f6ff 0%, #f6fbff 50%, #f4fbf8 100%)',
-        color: '#25324a',
+        background: '#070b12',
+        color: '#dce7f5',
       },
       body: {
         minWidth: '320px',
@@ -57,7 +56,7 @@ const pastelTheme = extendTheme({
         minHeight: '100vh',
       },
       '::selection': {
-        background: '#ccd7ff',
+        background: '#155e75',
       },
     },
   },
@@ -76,39 +75,39 @@ const pastelTheme = extendTheme({
       },
       variants: {
         solid: {
-          bg: 'brand.400',
+          bg: 'cyan.600',
           color: 'white',
-          _hover: { bg: 'brand.500' },
-          _active: { bg: 'brand.600' },
+          _hover: { bg: 'cyan.500' },
+          _active: { bg: 'cyan.700' },
         },
         outline: {
-          bg: 'whiteAlpha.800',
-          borderColor: 'brand.200',
-          color: 'brand.700',
-          _hover: { bg: 'brand.50' },
+          bg: 'whiteAlpha.100',
+          borderColor: 'whiteAlpha.300',
+          color: 'gray.100',
+          _hover: { bg: 'whiteAlpha.200' },
         },
         ghost: {
-          color: 'brand.700',
-          _hover: { bg: 'brand.50' },
+          color: 'gray.200',
+          _hover: { bg: 'whiteAlpha.100' },
         },
       },
     },
     Input: {
       defaultProps: {
-        focusBorderColor: 'brand.300',
+        focusBorderColor: 'cyan.400',
       },
     },
     Select: {
       defaultProps: {
-        focusBorderColor: 'brand.300',
+        focusBorderColor: 'cyan.400',
       },
     },
     Textarea: {
       defaultProps: {
-        focusBorderColor: 'brand.300',
+        focusBorderColor: 'cyan.400',
       },
     },
   },
 })
 
-export default pastelTheme
+export default darkTheme

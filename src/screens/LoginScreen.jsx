@@ -10,6 +10,7 @@ import {
   Text,
 } from '@chakra-ui/react'
 import { api } from '../api'
+import sensorixLogo from '../assets/sensorix_logo.png'
 import { formatApiError } from '../services/domain'
 
 export function LoginScreen({ error, isSubmitting, onClearError, onLogin }) {
@@ -65,27 +66,17 @@ export function LoginScreen({ error, isSubmitting, onClearError, onLogin }) {
         className="login-card"
         as="section"
         aria-label="ログイン"
-        bg="rgba(255, 255, 255, 0.78)"
+        bg="rgba(8, 13, 23, 0.94)"
         border="1px solid"
-        borderColor="whiteAlpha.700"
+        borderColor="whiteAlpha.200"
         borderRadius="32px"
-        boxShadow="0 28px 80px rgba(112, 133, 182, 0.22)"
+        boxShadow="0 28px 80px rgba(0, 0, 0, 0.55)"
         backdropFilter="blur(22px)"
       >
-        <Stack className="login-brand" direction="row" align="center" spacing="4">
-          <Box
-            className="brand-mark"
-            bg="linear-gradient(135deg, #d8e4ff 0%, #bfeee2 100%)"
-            color="brand.800"
-            boxShadow="inset 0 1px 0 rgba(255,255,255,0.6)"
-          >
-            IP
-          </Box>
-          <Box>
-            <Heading as="strong" size="md">iot_platform</Heading>
-            <Text color="gray.500" fontSize="sm">{isResetMode ? 'password reset flow' : 'pastel admin console'}</Text>
-          </Box>
-        </Stack>
+        <Box className="login-brand">
+          <img className="login-logo" src={sensorixLogo} alt="Sensorix" />
+          <Heading as="h1" size="sm">{isResetMode ? 'パスワード再発行' : 'IoT管理コンソール'}</Heading>
+        </Box>
         {isResetMode ? (
           <Stack as="form" className="login-form" onSubmit={submitPasswordReset} spacing="4">
             {(formError || error) && <Text className="form-error">{formError || error}</Text>}
