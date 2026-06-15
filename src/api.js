@@ -48,6 +48,32 @@ async function request(path, { method = 'GET', body, params } = {}) {
   return payload?.data ?? payload
 }
 
+async function download(path, { params } = {}) {
+  const response = await fetch(buildUrl(path, params), {
+    method: 'GET',
+    headers: {
+      Accept: 'text/csv',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type') ?? ''
+    const payload = contentType.includes('application/json') ? await response.json() : null
+    throw new ApiError(
+      payload?.error?.message ?? `API request failed: GET ${path}`,
+      response.status,
+      payload?.error?.details,
+    )
+  }
+
+  return {
+    blob: await response.blob(),
+    contentDisposition: response.headers.get('content-disposition'),
+  }
+}
+
 function setAuthToken(token) {
   authToken = token ?? ''
   if (authToken) {
@@ -96,6 +122,7 @@ export const api = {
   createDevice: (body) => request('/devices', { method: 'POST', body }),
   updateDevice: (deviceId, body) => request(`/devices/${encodeURIComponent(deviceId)}`, { method: 'PUT', body }),
   getDeviceGraph: (deviceId, params) => request(`/devices/${encodeURIComponent(deviceId)}/graph`, { params }),
+  downloadDeviceGraphCsv: (deviceId, params) => download(`/devices/${encodeURIComponent(deviceId)}/graph/csv`, { params }),
 
   listThresholds: (params) => request('/thresholds', { params }),
   createThreshold: (body) => request('/thresholds', { method: 'POST', body }),

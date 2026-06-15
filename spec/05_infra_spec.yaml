@@ -6,7 +6,7 @@
 #   05_infra_spec.yaml
 #
 # Spec Version:
-#   2.1.0
+#   2.2.0
 #
 # Last Updated:
 #   2026-06-15
@@ -28,7 +28,7 @@ infra_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.1.0
+    spec_version: 2.2.0
     document_type: infrastructure_specification
 
   # ===========================================================================
@@ -57,6 +57,12 @@ infra_spec:
       session_storage:
         token_key: iot_platform_auth_token
         user_key: iot_platform_auth_user
+      browser_capabilities:
+        csv_save_dialog:
+          preferred_api: File System Access API showSaveFilePicker
+          secure_context_required: true
+          supported_behavior: ネイティブの保存ダイアログで保存先とファイル名を指定する
+          unsupported_browser_fallback: HTMLAnchorElement download
 
     backend:
       development:

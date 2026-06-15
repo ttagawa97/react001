@@ -6,7 +6,7 @@
 #   03_ui_spec.yaml
 #
 # Spec Version:
-#   2.1.0
+#   2.2.0
 #
 # Last Updated:
 #   2026-06-15
@@ -33,7 +33,7 @@ ui_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.1.0
+    spec_version: 2.2.0
     document_type: ui_specification
     depends_on:
       - 01_overall_spec.yaml
@@ -496,6 +496,34 @@ ui_spec:
               request_range:
                 from: start_date_start_of_day
                 to: end_date_end_of_day
+            - id: csv_download_button
+              type: Button
+              label: CSVダウンロード
+              loading_label: CSV作成中...
+              alignment: right_edge
+              layout_rule: 開始日、終了日、表示ボタンを左側に並べ、CSVダウンロードボタンはフィルター領域の右端に配置する
+              responsive_rule: 折り返し表示時は通常の左寄せ配置に戻す
+              action: download_time_series_csv
+              datasource: GET /devices/{device_id}/graph/csv
+              request_range:
+                from: start_date_start_of_day
+                to: end_date_end_of_day
+              validation:
+                - start_date_required
+                - end_date_required
+                - start_date_less_than_or_equal_to_end_date
+              download_behavior:
+                open_native_save_file_dialog: true
+                allow_destination_selection: true
+                allow_filename_edit: true
+                browser_api: File System Access API showSaveFilePicker
+                file_type_filter: CSV (*.csv)
+                dialog_timing: CSV取得前のボタンクリック処理内で表示する
+                use_content_disposition_filename: true
+                fallback_filename: "{device_id}_{start_date}_{end_date}.csv"
+                suggested_filename: "{device_id}_{start_date}_{end_date}.csv"
+                cancel_behavior: ダウンロードせず画面に留まり、エラー表示しない
+                unsupported_browser_fallback: ブラウザ標準ダウンロードを実行し、保存先の選択可否はブラウザ設定に従う
 
         - id: time_series_area
           type: Table

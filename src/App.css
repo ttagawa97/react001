@@ -971,6 +971,10 @@ tbody tr:last-child td {
   opacity: 0.6;
 }
 
+.csv-download-button {
+  margin-left: auto;
+}
+
 .filter-note {
   min-height: 38px;
   min-width: 160px;
@@ -1410,5 +1414,9 @@ td {
 
   .filter-panel {
     flex-wrap: wrap;
+  }
+
+  .csv-download-button {
+    margin-left: 0;
   }
 }

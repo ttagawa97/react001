@@ -1,6 +1,6 @@
 manifest:
   system_name: iot_platform
-  spec_version: 2.1.0
+  spec_version: 2.2.0
   language: ja
   generation_goal: この一式のみから現行Reactアプリと同等の画面、状態管理、API接続、権限制御を生成できること
   read_order:

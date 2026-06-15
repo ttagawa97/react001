@@ -11,7 +11,7 @@
 #   Request/Response形式、権限制御を定義する。
 #
 # Spec Version:
-#   2.1.0
+#   2.2.0
 #
 # Last Updated:
 #   2026-06-15
@@ -29,7 +29,7 @@ api_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.1.0
+    spec_version: 2.2.0
     document_type: api_specification
     base_path: /api/v1
 
@@ -674,6 +674,52 @@ api_spec:
       response_rules:
         point_order: device_timestamp_ascending
         threshold_status_value: 最後のis_valid=trueのdisplay_valueを使用し、なければlatest_valuesへフォールバックする
+
+    - id: download_device_graph_csv
+      method: GET
+      path: /devices/{device_id}/graph/csv
+      purpose: 時系列データ表示で指定された期間の全データをCSVファイルとしてダウンロードする
+      allowed_roles:
+        - system_admin
+        - company_admin
+        - site_admin
+        - general_user
+      authorization_rule: ログインユーザーが参照可能な企業・現場に所属するdevice_idのみ取得可能
+      path_params:
+        device_id: string
+      query:
+        from: required_datetime
+        to: required_datetime
+      query_rules:
+        from: selected_start_date_start_of_day
+        to: selected_end_date_end_of_day
+        range_inclusion: from_and_to_inclusive
+        validation: from_must_be_less_than_or_equal_to_to
+      response:
+        status: 200
+        content_type: text/csv; charset=utf-8
+        content_disposition: attachment; filename*=UTF-8''{device_id}_{start_date}_{end_date}.csv
+        encoding: UTF-8 with BOM
+        header_row: true
+        columns:
+          - device_timestamp
+          - column_name
+          - display_name
+          - display_value
+          - raw_value
+          - unit
+          - server_timestamp
+        row_order:
+          - device_timestamp_ascending
+          - device_column_display_order_ascending
+        invalid_data: include
+        empty_range: return_header_only_csv
+      error_responses:
+        400: fromまたはtoの不足、日時形式不正、期間の逆転
+        401: 未認証または認証期限切れ
+        403: 対象デバイスへの参照権限なし
+        404: device_idが存在しない
+      cors_header_requirement: クロスオリジン構成ではContent-DispositionをAccess-Control-Expose-Headersに追加する
 
   # ===========================================================================
   # 09. THRESHOLD API

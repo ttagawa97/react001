@@ -60,6 +60,52 @@ function getRangeParams(period, startDatetime, endDatetime) {
   }
 }
 
+function getDownloadFileName(contentDisposition, deviceId, startDate, endDate) {
+  const encodedName = contentDisposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (encodedName) {
+    try {
+      return decodeURIComponent(encodedName)
+    } catch {
+      // Fall through to the plain filename or generated default.
+    }
+  }
+
+  const plainName = contentDisposition?.match(/filename="?([^";]+)"?/i)?.[1]
+  return plainName || `${deviceId}_${startDate}_${endDate}.csv`
+}
+
+function saveBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+async function selectCsvSaveFile(fileName) {
+  if (!window.showSaveFilePicker) return null
+
+  return window.showSaveFilePicker({
+    suggestedName: fileName,
+    types: [
+      {
+        description: 'CSVファイル',
+        accept: { 'text/csv': ['.csv'] },
+      },
+    ],
+    excludeAcceptAllOption: true,
+  })
+}
+
+async function writeBlobToFile(fileHandle, blob) {
+  const writable = await fileHandle.createWritable()
+  await writable.write(blob)
+  await writable.close()
+}
+
 export function DeviceGraphScreen({ device, onBack }) {
   const today = getTodayDate()
   const [activeTab, setActiveTab] = useState('graph')
@@ -72,6 +118,7 @@ export function DeviceGraphScreen({ device, onBack }) {
   const [timeSeriesColumns, setTimeSeriesColumns] = useState(device?.columns ?? [])
   const [hasLoadedTimeSeries, setHasLoadedTimeSeries] = useState(false)
   const [isLoading, setIsLoading] = useState(Boolean(device))
+  const [isDownloadingCsv, setIsDownloadingCsv] = useState(false)
   const [error, setError] = useState('')
   const graphRequestIdRef = useRef(0)
 
@@ -121,21 +168,15 @@ export function DeviceGraphScreen({ device, onBack }) {
 
   async function loadTimeSeriesData() {
     if (!device) return
-    if (!startDate || !endDate) {
-      setError('開始日と終了日を指定してください。')
-      return
-    }
-    if (startDate > endDate) {
-      setError('開始日は終了日以前の日付を指定してください。')
-      return
-    }
+    const rangeParams = validateTimeSeriesRange()
+    if (!rangeParams) return
 
     setIsLoading(true)
     setError('')
     try {
       const graphData = await api.getDeviceGraph(
         device.id,
-        getDateRangeParams(startDate, endDate),
+        rangeParams,
       )
       setTimeSeriesColumns(applyGraphData(device, graphData))
       setHasLoadedTimeSeries(true)
@@ -144,6 +185,49 @@ export function DeviceGraphScreen({ device, onBack }) {
       setError(formatApiError(loadError))
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  function validateTimeSeriesRange() {
+    if (!startDate || !endDate) {
+      setError('開始日と終了日を指定してください。')
+      return null
+    }
+    if (startDate > endDate) {
+      setError('開始日は終了日以前の日付を指定してください。')
+      return null
+    }
+    return getDateRangeParams(startDate, endDate)
+  }
+
+  async function downloadTimeSeriesCsv() {
+    if (!device) return
+    const rangeParams = validateTimeSeriesRange()
+    if (!rangeParams) return
+
+    const defaultFileName = `${device.id}_${startDate}_${endDate}.csv`
+    let fileHandle
+    try {
+      fileHandle = await selectCsvSaveFile(defaultFileName)
+    } catch (pickerError) {
+      if (pickerError?.name === 'AbortError') return
+      setError('保存先の選択画面を開けませんでした。')
+      return
+    }
+
+    setIsDownloadingCsv(true)
+    setError('')
+    try {
+      const { blob, contentDisposition } = await api.downloadDeviceGraphCsv(device.id, rangeParams)
+      if (fileHandle) {
+        await writeBlobToFile(fileHandle, blob)
+      } else {
+        saveBlob(blob, getDownloadFileName(contentDisposition, device.id, startDate, endDate))
+      }
+    } catch (downloadError) {
+      setError(formatApiError(downloadError))
+    } finally {
+      setIsDownloadingCsv(false)
     }
   }
 
@@ -292,10 +376,18 @@ export function DeviceGraphScreen({ device, onBack }) {
           <button
             className="filter-submit-button"
             type="button"
-            disabled={isLoading}
+            disabled={isLoading || isDownloadingCsv}
             onClick={loadTimeSeriesData}
           >
             表示
+          </button>
+          <button
+            className="filter-submit-button csv-download-button"
+            type="button"
+            disabled={isLoading || isDownloadingCsv}
+            onClick={downloadTimeSeriesCsv}
+          >
+            {isDownloadingCsv ? 'CSV作成中...' : 'CSVダウンロード'}
           </button>
         </FilterPanel>
       )}

@@ -10,7 +10,7 @@
 #   TimescaleDB、ダウンサンプリング、検証ルールを定義する。
 #
 # Spec Version:
-#   2.1.0
+#   2.2.0
 #
 # Last Updated:
 #   2026-06-15
@@ -28,7 +28,7 @@ data_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.1.0
+    spec_version: 2.2.0
     document_type: data_specification
     depends_on:
       - 01_overall_spec.yaml
@@ -511,6 +511,25 @@ data_spec:
         source: parsed_data_1hour
 
     exact_range_mapping: pending
+
+  time_series_csv_export:
+    source_selection: graph_data_selectionと同じ期間別データソースを使用する
+    range_inclusion: from_and_to_inclusive
+    include_all_columns: true
+    include_invalid_data: true
+    encoding: UTF-8 with BOM
+    header_fields:
+      - device_timestamp
+      - column_name
+      - display_name
+      - display_value
+      - raw_value
+      - unit
+      - server_timestamp
+    row_order:
+      - device_timestamp_ascending
+      - device_column_display_order_ascending
+    empty_result: header_only
 
   # ===========================================================================
   # 07. THRESHOLD DATA RULES

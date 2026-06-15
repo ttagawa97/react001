@@ -6,7 +6,7 @@
 #   01_overall_spec.yaml
 #
 # Spec Version:
-#   2.1.0
+#   2.2.0
 #
 # Last Updated:
 #   2026-06-15
@@ -26,7 +26,7 @@ overall_spec:
 
   metadata:
     system_name: iot_platform
-    spec_version: 2.1.0
+    spec_version: 2.2.0
     document_type: overall_specification
     language: ja
     timezone: Asia/Tokyo
