@@ -4,15 +4,17 @@ import { statusLabels } from '../data/constants'
 
 export function StatusBadge({ status }) {
   const statusMap = {
-    online: { bg: 'mint.100', color: 'mint.700' },
-    warning: { bg: 'orange.100', color: 'orange.700' },
-    offline: { bg: 'red.100', color: 'red.700' },
+    online: { bg: 'rgba(5, 150, 105, 0.24)', color: '#6ee7b7' },
+    warning: { bg: 'rgba(217, 119, 6, 0.24)', color: '#fcd34d' },
+    offline: { bg: 'rgba(225, 29, 72, 0.24)', color: '#fda4af' },
+    unknown: { bg: 'rgba(71, 85, 105, 0.42)', color: '#cbd5e1' },
   }
-  const style = statusMap[status] ?? { bg: 'gray.100', color: 'gray.700' }
+  const normalizedStatus = statusMap[status] ? status : 'unknown'
+  const style = statusMap[normalizedStatus]
 
   return (
     <Badge px="3" py="1.5" borderRadius="full" fontSize="xs" fontWeight="700" bg={style.bg} color={style.color}>
-      {statusLabels[status]}
+      {statusLabels[normalizedStatus]}
     </Badge>
   )
 }

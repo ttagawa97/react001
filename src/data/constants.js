@@ -51,7 +51,7 @@ export const menuVisibility = {
 export const statusLabels = {
   online: '稼働',
   warning: '警告',
-  offline: '切断',
+  offline: '停止',
   unknown: '不明',
 }
 

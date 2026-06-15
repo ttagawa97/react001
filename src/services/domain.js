@@ -127,6 +127,68 @@ function normalizeAlertStatus(value) {
   return value ?? '正常'
 }
 
+function normalizePositiveNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? number : null
+}
+
+function estimateReceiveIntervalSeconds(columns) {
+  const receivedTimes = columns
+    .flatMap((column) => (
+      column.serverTimestamps?.length > 0 ? column.serverTimestamps : column.timestamps ?? []
+    ))
+    .map((timestamp) => new Date(timestamp).getTime())
+    .filter(Number.isFinite)
+    .filter((timestamp, index, timestamps) => timestamps.indexOf(timestamp) === index)
+    .sort((left, right) => left - right)
+    .slice(-10)
+
+  if (receivedTimes.length < 2) return null
+
+  const intervals = receivedTimes.slice(1).map((timestamp, index) => (
+    (timestamp - receivedTimes[index]) / 1000
+  )).filter((interval) => interval > 0)
+  if (intervals.length === 0) return null
+
+  return intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length
+}
+
+function normalizeCommunicationStatus(value) {
+  const status = String(value ?? '').trim().toLowerCase()
+  if (['online', 'active', 'running', '稼働', '正常'].includes(status)) return 'online'
+  if (['warning', 'warn', '警告'].includes(status)) return 'warning'
+  if (['offline', 'inactive', 'stopped', 'disconnected', '停止', '切断', '通信断'].includes(status)) return 'offline'
+  return 'unknown'
+}
+
+function getCommunicationStatus(status, latestReceivedAt, estimatedIntervalSeconds) {
+  if (!latestReceivedAt || latestReceivedAt === '-') return 'unknown'
+  if (!estimatedIntervalSeconds) return normalizeCommunicationStatus(status)
+
+  const normalizedReceivedAt = typeof latestReceivedAt === 'string'
+    ? latestReceivedAt.replace(' ', 'T')
+    : latestReceivedAt
+  const lastReceivedTime = new Date(normalizedReceivedAt).getTime()
+  if (!Number.isFinite(lastReceivedTime)) return normalizeCommunicationStatus(status)
+
+  const elapsedSeconds = (Date.now() - lastReceivedTime) / 1000
+  return elapsedSeconds > estimatedIntervalSeconds ? 'offline' : 'online'
+}
+
+function enrichDeviceStatusFromKnownHistory(device) {
+  if (device.estimatedIntervalSeconds) return device
+
+  const seedDevice = seedDevices.find((candidate) => candidate.id === device.id)
+  const estimatedIntervalSeconds = estimateReceiveIntervalSeconds(seedDevice?.columns ?? [])
+  if (!estimatedIntervalSeconds) return device
+
+  return {
+    ...device,
+    estimatedIntervalSeconds,
+    status: getCommunicationStatus(device.status, device.latestReceivedAt, estimatedIntervalSeconds),
+  }
+}
+
 function findCompanyIdByName(companyName) {
   return companies.find((company) => company.name === companyName)?.id
 }
@@ -143,6 +205,10 @@ export function normalizeDevice(device) {
   const apiId = normalizeId(device.apiId ?? device.id)
   const companyId = normalizeId(device.companyId ?? device.company_id ?? device.company) ?? findCompanyIdByName(device.company_name)
   const siteId = normalizeId(device.siteId ?? device.site_id ?? device.site) ?? findSiteIdByName(device.site_name, companyId)
+  const latestReceivedAt = device.latestReceivedAt ?? device.latest_received_at ?? '-'
+  const estimatedIntervalSeconds = normalizePositiveNumber(
+    device.estimatedIntervalSeconds ?? device.estimated_interval_seconds,
+  ) ?? estimateReceiveIntervalSeconds(columns)
 
   return {
     id: normalizeId(device.deviceId ?? device.device_id ?? device.id),
@@ -150,11 +216,16 @@ export function normalizeDevice(device) {
     name: device.name ?? device.device_name,
     companyId,
     siteId,
-    status: device.status ?? device.communication_status ?? 'offline',
+    status: getCommunicationStatus(
+      device.status ?? device.communication_status,
+      latestReceivedAt,
+      estimatedIntervalSeconds,
+    ),
     authId: device.authId ?? device.auth_id ?? '',
     inputType: device.inputType ?? device.input_type ?? 'json',
     csvHeaderMode: device.csvHeaderMode ?? device.csv_header_mode ?? '-',
-    latestReceivedAt: device.latestReceivedAt ?? device.latest_received_at ?? '-',
+    latestReceivedAt,
+    estimatedIntervalSeconds,
     alert: normalizeAlertStatus(device.alert ?? device.alert_status),
     columns,
     latestValues: normalizeLatestValues(device.latestValues ?? device.latest_values),
@@ -173,10 +244,14 @@ function mergeLatestDeviceData(sourceDevices, latestDevices) {
     const latest = latestById.get(device.id)
     if (!latest) return device
 
+    const estimatedIntervalSeconds = latest.estimatedIntervalSeconds ?? device.estimatedIntervalSeconds
+    const latestReceivedAt = latest.latestReceivedAt === '-' ? device.latestReceivedAt : latest.latestReceivedAt
+
     return {
       ...device,
-      status: latest.status,
-      latestReceivedAt: latest.latestReceivedAt,
+      status: getCommunicationStatus(latest.status, latestReceivedAt, estimatedIntervalSeconds),
+      latestReceivedAt,
+      estimatedIntervalSeconds,
       alert: latest.alert,
       latestValues: latest.latestValues,
     }
@@ -283,14 +358,16 @@ export async function loadInitialData(role = 'system_admin') {
     optionalData(api.listDevices, seedDevices),
     optionalData(api.listLatestDevices, []),
     canReadManagementTables ? optionalData(api.listUsers, seedUsers) : Promise.resolve(seedUsers),
-    canReadManagementTables ? optionalData(api.listThresholds, seedThresholds) : Promise.resolve(seedThresholds),
+    optionalData(api.listThresholds, seedThresholds),
     canReadManagementTables ? optionalData(api.listAuditLogs, seedAuditLogs) : Promise.resolve(seedAuditLogs),
   ])
 
   replaceCollection(companies, asArray(fallbackWhenEmpty(companyData, seedCompanies)).map(normalizeCompany))
   replaceCollection(sites, asArray(fallbackWhenEmpty(siteData, seedSites)).map(normalizeSite))
 
-  const normalizedDevices = asArray(fallbackWhenEmpty(deviceData, seedDevices)).map(normalizeDevice)
+  const normalizedDevices = asArray(fallbackWhenEmpty(deviceData, seedDevices))
+    .map(normalizeDevice)
+    .map(enrichDeviceStatusFromKnownHistory)
   const normalizedLatestDevices = asArray(latestDeviceData).map(normalizeDevice)
   const normalizedThresholds = asArray(fallbackWhenEmpty(thresholdData, seedThresholds))
     .map((threshold) => normalizeThreshold(threshold, normalizedDevices))
@@ -411,6 +488,41 @@ export function getDisplayValues(column) {
   return column.values.map((value) => getDisplayValue(column, value))
 }
 
+export function getThresholdStatus(columns, latestValues = [], preferLatestValues = false) {
+  let hasThreshold = false
+  let hasComparableValue = false
+  let hasUpperExceeded = false
+  let hasLowerExceeded = false
+
+  columns.forEach((column) => {
+    if (column.thresholds.length === 0 || column.type !== 'number') return
+    hasThreshold = true
+
+    const latestEntry = latestValues.find((entry) => entry.columnKey === column.key)
+    const latestColumnValue = getDisplayValue(column, column.values.at(-1))
+    const numericRawValue = column.type === 'number' ? Number(latestEntry?.rawValue) : latestEntry?.rawValue
+    const latestApiValue = latestEntry?.displayValue
+      ?? getDisplayValue(column, Number.isNaN(numericRawValue) ? latestEntry?.rawValue : numericRawValue)
+    const latestValue = preferLatestValues
+      ? latestApiValue ?? latestColumnValue
+      : latestColumnValue ?? latestApiValue
+    const numericValue = Number(latestValue)
+    if (!Number.isFinite(numericValue)) return
+    hasComparableValue = true
+
+    column.thresholds.forEach((threshold) => {
+      if (typeof threshold.upper === 'number' && numericValue > threshold.upper) hasUpperExceeded = true
+      if (typeof threshold.lower === 'number' && numericValue < threshold.lower) hasLowerExceeded = true
+    })
+  })
+
+  if (hasUpperExceeded && hasLowerExceeded) return '上下限超過'
+  if (hasUpperExceeded) return '上限超過'
+  if (hasLowerExceeded) return '下限超過'
+  if (hasThreshold && !hasComparableValue) return '判定不能'
+  return hasThreshold ? '正常' : '閾値未設定'
+}
+
 function getGraphPointColumnKey(point) {
   return point.column_name ?? point.columnName ?? point.key
 }
@@ -479,6 +591,12 @@ export function applyGraphData(device, graphData) {
           ?? point.receivedAt,
       }))
       .filter((point) => point.value !== undefined)
+      .sort((left, right) => {
+        const leftTime = new Date(left.serverTimestamp ?? left.timestamp).getTime()
+        const rightTime = new Date(right.serverTimestamp ?? right.timestamp).getTime()
+        if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return 0
+        return leftTime - rightTime
+      })
 
     return {
       ...column,

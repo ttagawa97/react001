@@ -14,6 +14,7 @@ import {
   getCompany,
   getLatestValues,
   getSite,
+  getThresholdStatus,
 } from '../services/domain'
 
 const PERIOD_MILLISECONDS = {
@@ -186,6 +187,7 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
 
   const company = getCompany(device.companyId)
   const site = getSite(device.siteId)
+  const thresholdStatus = getThresholdStatus(graphColumns, device.latestValues)
 
   return (
     <div className="screen-stack">
@@ -219,7 +221,7 @@ export function DeviceGraphScreen({ role, filter, onFilterChange, device, onBack
         </article>
         <article className="metric-card compact">
           <span>閾値状態</span>
-          <strong>{device.alert}</strong>
+          <strong>{thresholdStatus}</strong>
           <p>カラム別に閾値線と超過点を表示</p>
         </article>
       </section>

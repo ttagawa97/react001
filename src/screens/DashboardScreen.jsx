@@ -18,7 +18,7 @@ export function DashboardScreen({ role, filter, onFilterChange }) {
     { label: '現場数', value: filteredSites.length, detail: '現在の権限・絞り込み範囲' },
     { label: '総デバイス数', value: filteredDevices.length, detail: '現場配下の設置端末' },
     { label: '正常台数', value: normalDevices, detail: '最新値が正常範囲内' },
-    { label: '通信断台数', value: disconnectedDevices, detail: '欠落2回以上で検知' },
+    { label: '通信停止台数', value: disconnectedDevices, detail: '推定受信間隔の超過で検知' },
     { label: 'アラート台数', value: alertDevices, detail: '閾値または通信状態' },
   ]
 

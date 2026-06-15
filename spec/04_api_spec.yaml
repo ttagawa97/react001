@@ -411,8 +411,15 @@ api_spec:
         device_name: string
         latest_values: array
         latest_received_at: nullable_datetime
-        communication_status: online_or_warning_or_offline_or_unknown
+        estimated_interval_seconds: nullable_number
+        communication_status: online_or_offline_or_unknown
         alert_status: normal_or_alert
+      communication_status_rule:
+        source: device_status
+        evaluated_at: request_datetime
+        online: latest_received_atからestimated_interval_seconds以内
+        offline: latest_received_atからestimated_interval_secondsを超過
+        unknown: 未受信または受信間隔を推定できない
 
     - id: get_device
       method: GET

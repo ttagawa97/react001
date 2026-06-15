@@ -501,7 +501,16 @@ data_spec:
     calculation:
       use_last_receive_count: 10
       estimated_interval: average
-      disconnected_when_missing_count: 2
+      interval_source: server_received_at
+      disconnected_when_missing_count: 1
+      status_rules:
+        online: current_datetime_minus_last_received_at <= estimated_interval_seconds
+        offline: current_datetime_minus_last_received_at > estimated_interval_seconds
+        unknown: last_received_at_is_null_or_interval_cannot_be_estimated
+      calculation_note: 直近10回の受信日時から受信間隔を求め、その平均秒数をestimated_interval_secondsとする
+      evaluation_triggers:
+        - device_data_received
+        - list_latest_devices_requested
 
     update_target:
       table: device_status
